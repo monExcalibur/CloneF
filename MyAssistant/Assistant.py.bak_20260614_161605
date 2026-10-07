@@ -15,14 +15,7 @@ from PIL import Image, ImageGrab
 import keyboard
 
 # ========== НАСТРОЙКИ ==========
-GEMINI_API_KEYS = [
-    "AIzaSyAPinx0-Iwfmb5_LuE4lH1lpyZurG4UaRI",
-    "AIzaSyA-1RZtkqyTABk0ieNkcaTbnH-rM4T1CIM",
-    "AIzaSyCWaZX5NW54Fmz-j-OzW7-aEgmGL6ek9ac",
-    "AIzaSyCf--vqqkRUr8Qm8e6M1he_BmsqPIbK0WI",
-    "AIzaSyBXPOEnVRd8-nMVGHtdFmqJ07-YVzjZ_Qk",
-    "AIzaSyC15PHdhUeDOS-o3Njgt-5Svwu6Tcllq-4",
-]
+GEMINI_API_KEYS = []
 
 MODELS_TO_TRY = [
     "gemini-2.5-flash",
