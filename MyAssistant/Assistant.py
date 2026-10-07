@@ -1,4 +1,11 @@
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+if __name__ == "__main__" and sys.platform != "win32":
+    from clonef.__main__ import main
+    raise SystemExit(main())
+
 import threading
 import queue
 import time
@@ -16,9 +23,12 @@ from PIL import Image, ImageGrab
 import keyboard
 
 # ========== НАСТРОЙКИ ==========
-GEMINI_API_KEYS = [
+from clonef.config import Config
+from clonef.gemini import GeminiClient
 
-]
+_config = Config.load()
+_gemini_client = GeminiClient(_config)
+GEMINI_API_KEYS = list(_config.api_keys)
 
 MODELS_TO_TRY = [
     "gemini-2.5-flash",
@@ -38,11 +48,11 @@ MARGIN_LEFT = 15
 MARGIN_BOTTOM = 115   # выше на 50 px, чем было (65)
 UI_FONT_SIZE = 9
 
-DB_FILE = "all_materials.txt"
-JAVA_FILE = "java_materials.txt"
+DB_FILE = str(_config.material_path("DB"))
+JAVA_FILE = str(_config.material_path("Java"))
 
 # --- КЭШИРОВАНИЕ ---
-CACHE_ENABLED = True
+CACHE_ENABLED = False
 CACHE_CREATE_ENABLED = False
 CACHE_TTL = 86400
 CACHE_MIN_TOKENS = 1024
@@ -217,75 +227,7 @@ def load_java():
     load_materials(JAVA_FILE, 'Java', '$')
 
 def ask_gemini(image_bytes):
-    img_hash = hashlib.md5(image_bytes).hexdigest()
-    if img_hash in answer_cache:
-        print("[CACHE] Изображение уже было в кэше, возвращаю готовый ответ.")
-        return answer_cache[img_hash]
-
-    print("\n[IMAGE] Сжатие скриншота...")
-    img = Image.open(io.BytesIO(image_bytes))
-    img.thumbnail((800, 800))
-    buf = io.BytesIO()
-    img.save(buf, format='JPEG', quality=60)
-    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-    print(f"[IMAGE] Сжатый размер base64: {len(img_b64)} символов.")
-
-    if materials_loaded and current_materials:
-        full_prompt = f"""Лекции по {current_type.upper()}:
-{current_materials}
-
-{BASE_INSTRUCTION}
-
-Теперь ответь на вопросы на изображении, строго соблюдая формат."""
-        print(f"[PROMPT] Используются лекции по {current_type}, длина полного промпта: {len(full_prompt)} символов.")
-    else:
-        full_prompt = BASE_INSTRUCTION + "\n\nОтветь на вопросы, строго соблюдая формат."
-        print("[PROMPT] Лекции не загружены, промпт состоит только из инструкции.")
-
-    for model_idx, model in enumerate(MODELS_TO_TRY):
-        print(f"\n[MODEL] Пробую модель {model} ({model_idx+1}/{len(MODELS_TO_TRY)})...")
-        for key_idx, key in enumerate(GEMINI_API_KEYS):
-            key_short = key[:8] + "..." + key[-4:]
-            print(f"  [KEY] Ключ {key_short} ({key_idx+1}/{len(GEMINI_API_KEYS)})...", end="", flush=True)
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-            payload = {
-                "contents": [{
-                    "parts": [
-                        {"text": full_prompt},
-                        {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
-                    ]
-                }]
-            }
-            if CACHE_ENABLED and cache_name and ("2.5" in model or "3." in model):
-                payload["cached_content"] = cache_name
-                print(" (с кэшем)", end="")
-
-            start = time.time()
-            try:
-                resp = requests.post(url, json=payload, timeout=10)
-                elapsed = time.time() - start
-                print(f" -> ответ {resp.status_code} за {elapsed:.2f} сек")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    raw = data['candidates'][0]['content']['parts'][0]['text']
-                    print(f"[SUCCESS] Модель {model} вернула ответ (первые 100 символов): {raw[:100]}...")
-                    clean = clean_answer(raw)
-                    print(f"[CLEAN] После очистки: {clean}")
-                    answer_cache[img_hash] = clean
-                    return clean
-                elif resp.status_code == 404:
-                    print(f"[SKIP] Модель {model} не найдена (404), переход к следующей.")
-                    break
-                else:
-                    print(f"[WARN] Неожиданный статус {resp.status_code}, пробую следующий ключ.")
-                    continue
-            except Exception as e:
-                elapsed = time.time() - start
-                print(f" -> исключение через {elapsed:.2f} сек: {e}")
-                continue
-
-    print("[FAIL] Все модели и ключи исчерпаны. Возвращаю ERR.")
-    return "ERR"
+    return _gemini_client.ask(image_bytes, current_materials or "", current_type or "")
 
 def clean_answer(raw):
     print("[CLEAN] Начинаю очистку ответа...")

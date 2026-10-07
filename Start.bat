@@ -1,7 +1,17 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "dest=%PUBLIC%\WorkHelper_%RANDOM%"
+if not exist "%~dp0MyAssistant\python.zip" (
+    if exist "%~dp0.venv\Scripts\python.exe" (
+        "%~dp0.venv\Scripts\python.exe" "%~dp0MyAssistant\Assistant.py"
+        exit /b !errorlevel!
+    )
+    echo Create .venv and install requirements.txt, or provide MyAssistant\python.zip.
+    pause
+    exit /b 1
+)
+
+set "dest=%LOCALAPPDATA%\CloneF\WorkHelper_%RANDOM%"
 
 :: Быстрое копирование (многопоточное для python.zip, обычное для мелких файлов)
 robocopy "%~dp0MyAssistant" "%dest%" python.zip /NP /NFL /NDL /MT:8 >nul
@@ -11,8 +21,16 @@ if errorlevel 8 (
     exit /b
 )
 copy /Y "%~dp0MyAssistant\Assistant.py" "%dest%\" > nul
-copy /Y "%~dp0MyAssistant\all_materials.txt" "%dest%\" > nul
-copy /Y "%~dp0MyAssistant\java_materials.txt" "%dest%\" > nul
+mkdir "%dest%\MyAssistant" >nul 2>&1
+copy /Y "%~dp0MyAssistant\all_materials.txt" "%dest%\MyAssistant\" > nul
+copy /Y "%~dp0MyAssistant\java_materials.txt" "%dest%\MyAssistant\" > nul
+robocopy "%~dp0clonef" "%dest%\clonef" *.py /E /XD __pycache__ /NP /NFL /NDL >nul
+if errorlevel 8 (
+    echo Error copying clonef module.
+    pause
+    exit /b 1
+)
+if exist "%~dp0.env" copy /Y "%~dp0.env" "%dest%\.env" >nul
 
 :: Флешку можно извлечь сразу после завершения копирования
 
