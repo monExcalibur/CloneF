@@ -1,0 +1,597 @@
+import sys
+import threading
+import time
+import base64
+import io
+import json
+import os
+import re
+import hashlib
+import subprocess
+import requests
+from PIL import Image, ImageGrab
+import keyboard
+import ctypes
+from ctypes import wintypes
+
+# ========== НАСТРОЙКИ ==========
+GEMINI_API_KEYS = [
+    "AIzaSyAPinx0-Iwfmb5_LuE4lH1lpyZurG4UaRI",
+    "AIzaSyA-1RZtkqyTABk0ieNkcaTbnH-rM4T1CIM",
+    "AIzaSyCWaZX5NW54Fmz-j-OzW7-aEgmGL6ek9ac",
+    "AIzaSyCf--vqqkRUr8Qm8e6M1he_BmsqPIbK0WI",
+    "AIzaSyBXPOEnVRd8-nMVGHtdFmqJ07-YVzjZ_Qk",
+    "AIzaSyC15PHdhUeDOS-o3Njgt-5Svwu6Tcllq-4",
+]
+
+MODELS_TO_TRY = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash-lite",
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-flash-lite-preview",
+]
+
+HOTKEY_DB = 'ctrl+shift+d'
+HOTKEY_JAVA = 'ctrl+shift+j'
+HOTKEY_START = 'right shift+p'
+HOTKEY_EXIT = 'ctrl+shift+q'
+
+UI_COLOR = "#666666"
+DURATION_MS = 2200
+WINDOW_WIDTH = 400
+WINDOW_HEIGHT = 200
+MARGIN_LEFT = 15
+MARGIN_BOTTOM = 65
+
+DB_FILE = "all_materials.txt"
+JAVA_FILE = "java_materials.txt"
+
+AUTO_TYPE_ENABLED = True
+AUTO_TYPE_START_DELAY = 0.35
+AUTO_TYPE_CHAR_DELAY = 0.11
+AUTO_TYPE_TOGGLE_KEY = "right shift+i"
+
+# --- КЭШИРОВАНИЕ ---
+CACHE_ENABLED = True
+CACHE_CREATE_ENABLED = False
+CACHE_TTL = 86400  # 24 часа
+CACHE_MIN_TOKENS = 1024
+CACHE_NAME_FILE = os.path.join(os.environ.get("PUBLIC", "C:\\Users\\Public"), "gemini_cache_name.txt")
+cache_name = None
+
+current_materials = None
+current_type = None
+materials_loaded = False
+answer_cache = {}
+auto_type_thread = None
+auto_type_lock = threading.Lock()
+auto_type_text = ""
+auto_type_index = 0
+auto_type_session_id = 0
+auto_type_command = None
+is_processing = False
+
+PYQT_SITE_PACKAGES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "python", "Lib", "site-packages")
+if os.path.isdir(PYQT_SITE_PACKAGES) and PYQT_SITE_PACKAGES not in sys.path:
+    sys.path.insert(0, PYQT_SITE_PACKAGES)
+
+from PyQt5.QtWidgets import QApplication, QLabel, QWidget
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt5.QtGui import QFont
+
+class UISignals(QObject):
+    show_signal = pyqtSignal(str)
+
+ui_signals = UISignals()
+
+BASE_INSTRUCTION = """Ты — эксперт по Computer Science и базам данных, а также по Java.
+
+Формат ответа для тестов (СТРОГО):
+1. После анализа напиши ===ОТВЕТЫ=== на отдельной строке.
+2. После разделителя — каждый ответ с новой строки в формате: НОМЕР_ВОПРОСА:ОТВЕТ
+3. Для вопросов с буквами (A,B,C): пиши слитно (ABD)
+4. Для True/False: только T или F (НЕ TRUE/FALSE)
+5. Для вопросов без вариантов: пронумеруй сверху вниз и напиши номера правильных ответов слитно (24)
+
+Если на изображении задача на программирование:
+- игнорируй формат тестовых ответов
+- выдай только чистый код
+- без комментариев
+- без Markdown
+- без блоков ```.
+
+Пример:
+===ОТВЕТЫ===
+14:ABD
+15:T
+16:24
+
+НЕ ДОБАВЛЯЙ никаких пояснений, текста, рассуждений. Только ответы после разделителя. Ничего до разделителя тоже не пиши, кроме анализа, но после разделителя — только ответы."""
+
+# ---------- ФУНКЦИИ КЭШИРОВАНИЯ ----------
+def estimate_token_count(text):
+    compact_text = text.strip()
+    if not compact_text:
+        return 0
+    return max(1, len(compact_text) // 4)
+
+def create_context_cache(api_key, content, ttl_seconds=CACHE_TTL):
+    if not CACHE_CREATE_ENABLED:
+        print("[CACHE] Явное создание кэша отключено, пропускаю.")
+        return None
+
+    token_count = estimate_token_count(content)
+    print(f"[CACHE] Попытка создать кэш с ключом {api_key[:8]}... (TTL={ttl_seconds} сек, tokens≈{token_count})")
+    url = f"https://generativelanguage.googleapis.com/v1beta/cachedContents?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "model": "models/gemini-2.5-flash",
+        "contents": [{"role": "user", "parts": [{"text": content}]}],
+        "ttl": f"{ttl_seconds}s"
+    }
+    start = time.time()
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        elapsed = time.time() - start
+        print(f"[CACHE] Ответ получен за {elapsed:.2f} сек, статус {resp.status_code}")
+        if resp.status_code == 200:
+            name = resp.json().get("name")
+            print(f"[CACHE] Успех! Имя кэша: {name}")
+            return name
+        if resp.status_code == 400:
+            try:
+                error_message = resp.json().get("error", {}).get("message", "Unknown cache error")
+            except Exception:
+                error_message = resp.text
+            print(f"[CACHE] Кэш не создан: {error_message}")
+            return None
+        print(f"[CACHE] Неожиданный статус {resp.status_code}: {resp.text[:300]}")
+        return None
+    except Exception as e:
+        print(f"[CACHE] Ошибка создания кэша: {e}")
+        return None
+
+def load_materials(file_path, material_type, indicator):
+    global current_materials, current_type, materials_loaded, cache_name
+    print(f"\n[MATERIAL] Загрузка {file_path}...")
+    if not os.path.exists(file_path):
+        print(f"[MATERIAL] Файл не найден!")
+        ui_signals.show_signal.emit("Файл не найден!")
+        return
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            current_materials = f.read()
+        current_type = material_type
+        materials_loaded = True
+        print(f"[MATERIAL] Успешно загружено {len(current_materials)} символов (тип: {material_type})")
+
+        # Управление кэшем
+        if CACHE_ENABLED:
+            current_tokens = estimate_token_count(current_materials)
+            if current_tokens < CACHE_MIN_TOKENS:
+                print(f"[CACHE] Материала слишком мало для явного кэша: ≈{current_tokens} токенов, минимум {CACHE_MIN_TOKENS}. Пропускаю.")
+                cache_name = None
+            elif os.path.exists(CACHE_NAME_FILE):
+                with open(CACHE_NAME_FILE, 'r') as f:
+                    cache_name = f.read().strip()
+                print(f"[CACHE] Найден сохранённый кэш: {cache_name}")
+            elif CACHE_CREATE_ENABLED:
+                print("[CACHE] Файл кэша не найден, создаём новый...")
+                cache_name = create_context_cache(GEMINI_API_KEYS[0], current_materials, CACHE_TTL)
+                if cache_name:
+                    with open(CACHE_NAME_FILE, 'w') as f:
+                        f.write(cache_name)
+                    print("[CACHE] Имя кэша сохранено в файл.")
+            else:
+                print("[CACHE] Явное создание кэша отключено, пропускаю.")
+                cache_name = None
+        ui_signals.show_signal.emit(indicator)
+    except Exception as e:
+        print(f"[MATERIAL] Ошибка загрузки: {e}")
+        ui_signals.show_signal.emit("Ошибка загрузки")
+
+def load_db():
+    print("\n--- Загрузка лекций БД ---")
+    load_materials(DB_FILE, 'DB', '@')
+
+def load_java():
+    print("\n--- Загрузка лекций Java ---")
+    load_materials(JAVA_FILE, 'Java', '$')
+
+def ask_gemini(image_bytes):
+    img_hash = hashlib.md5(image_bytes).hexdigest()
+    if img_hash in answer_cache:
+        print("[CACHE] Изображение уже было в кэше, возвращаю готовый ответ.")
+        return answer_cache[img_hash]
+
+    print("\n[IMAGE] Сжатие скриншота...")
+    img = Image.open(io.BytesIO(image_bytes))
+    img.thumbnail((800, 800))
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG', quality=60)
+    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    print(f"[IMAGE] Сжатый размер base64: {len(img_b64)} символов.")
+
+    if materials_loaded and current_materials:
+        full_prompt = f"""Лекции по {current_type.upper()}:
+{current_materials}
+
+{BASE_INSTRUCTION}
+
+Теперь ответь на вопросы на изображении, строго соблюдая формат."""
+        print(f"[PROMPT] Используются лекции по {current_type}, длина полного промпта: {len(full_prompt)} символов.")
+    else:
+        full_prompt = BASE_INSTRUCTION + "\n\nОтветь на вопросы, строго соблюдая формат."
+        print("[PROMPT] Лекции не загружены, промпт состоит только из инструкции.")
+
+    # Перебор моделей и ключей
+    for model_idx, model in enumerate(MODELS_TO_TRY):
+        print(f"\n[MODEL] Пробую модель {model} ({model_idx+1}/{len(MODELS_TO_TRY)})...")
+        for key_idx, key in enumerate(GEMINI_API_KEYS):
+            key_short = key[:8] + "..." + key[-4:]
+            print(f"  [KEY] Ключ {key_short} ({key_idx+1}/{len(GEMINI_API_KEYS)})...", end="", flush=True)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+            payload = {
+                "contents": [{
+                    "parts": [
+                        {"text": full_prompt},
+                        {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                    ]
+                }]
+            }
+            if CACHE_ENABLED and cache_name and ("2.5" in model or "3." in model):
+                payload["cached_content"] = cache_name
+                print(" (с кэшем)", end="")
+
+            start = time.time()
+            try:
+                resp = requests.post(url, json=payload, timeout=10)
+                elapsed = time.time() - start
+                print(f" -> ответ {resp.status_code} за {elapsed:.2f} сек")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw = data['candidates'][0]['content']['parts'][0]['text']
+                    print(f"[SUCCESS] Модель {model} вернула ответ (первые 100 символов): {raw[:100]}...")
+                    clean = clean_answer(raw)
+                    print(f"[CLEAN] После очистки: {clean}")
+                    answer_cache[img_hash] = clean
+                    return clean
+                elif resp.status_code == 404:
+                    print(f"[SKIP] Модель {model} не найдена (404), переход к следующей.")
+                    break  # выходим из цикла ключей для этой модели
+                else:
+                    print(f"[WARN] Неожиданный статус {resp.status_code}, пробую следующий ключ.")
+                    continue
+            except Exception as e:
+                elapsed = time.time() - start
+                print(f" -> исключение через {elapsed:.2f} сек: {e}")
+                continue
+
+    print("[FAIL] Все модели и ключи исчерпаны. Возвращаю ERR.")
+    return "ERR"
+
+def clean_answer(raw):
+    print("[CLEAN] Начинаю очистку ответа...")
+    
+    # 1. Проверяем, не является ли ответ КОДОМ
+    if looks_like_code_answer(raw):
+        print("[CLEAN] Ответ похож на код, вызываю extract_code_answer.")
+        return extract_code_answer(raw)
+    
+    # 2. Если есть разделитель, берем только часть после него
+    text = raw
+    if "===ОТВЕТЫ===" in raw:
+        text = raw.split("===ОТВЕТЫ===")[-1]
+        print("[CLEAN] Разделитель найден, беру часть после ===ОТВЕТЫ===.")
+    
+    text = text.strip()
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    if not lines:
+        return "ERR"
+
+    # 3. Проверка на формат тестов (1:ABC)
+    is_test_format = any(re.match(r"^\d+:.*", l) for l in lines)
+    
+    if is_test_format:
+        filtered = []
+        for l in lines:
+            match = re.match(r"^(\d+):(.*)", l)
+            if match:
+                num = match.group(1)
+                ans = re.sub(r"[^A-Z0-9]", "", match.group(2).upper())
+                if ans:
+                    filtered.append(f"{num}:{ans}")
+        
+        if filtered:
+            result = "\n".join(filtered)
+            print(f"[CLEAN] Тестовый формат: {filtered}")
+            return result
+            
+    print("[CLEAN] Неизвестный формат, возвращаю как текст.")
+    return text
+
+
+def extract_code_answer(raw):
+    print("[CODE] Извлекаю чистый код...")
+    text = raw.strip()
+    if "```" in text:
+        blocks = re.findall(r"```(?:[a-zA-Z0-9_+-]+)?\s*([\s\S]*?)```", text)
+        if blocks:
+            text = "\n".join(block.strip() for block in blocks if block.strip())
+        else:
+            text = text.replace("```", "").strip()
+    
+    if "===ОТВЕТЫ===" in text:
+        text = text.split("===ОТВЕТЫ===")[-1].strip()
+
+    lines = [line.rstrip() for line in text.split("\n")]
+    return "\n".join(lines).strip()
+
+def looks_like_code_answer(answer):
+    if not answer or answer == "ERR":
+        return False
+    if "```" in answer:
+        return True
+    if re.search(r"^\d+:[A-Z0-9]+$", answer, re.MULTILINE):
+        return False
+    
+    markers = [
+        "def ", "class ", "import ", "from ", "return ", "if ",
+        "public ", "static ", "void ", "println", "System.out",
+        "function ", "console.", "#include", "print(", "let ", "const ",
+        "{", "}", ";", "(", ")", "[]",
+        "select ", "insert ", "update ", "delete ", "from ", "where ",
+        "create table", "join ", "group by", "order by"
+    ]
+    lowered = answer.lower()
+    score = sum(1 for marker in markers if marker in lowered)
+    sql_keywords = ["table", "primary key", "foreign key", "references", "values", "into"]
+    score += sum(1 for kw in sql_keywords if kw in lowered)
+    
+    print(f"[CODE] Кодовый скор: {score}")
+    return score >= 2
+
+_hook_id = None
+
+# Флаг: пропускать ли следующий ввод (для нашего auto-typer)
+_typing_now = False
+
+def keyboard_blocker(event):
+    """Блокирует ВСЕ клавиши, кроме системных и клавиш управления паузой/выходом"""
+    global _typing_now
+    
+    # Пропускаем события только при отпускании, чтобы не оставлять "залипшие" клавиши
+    if event.event_type != 'down':
+        return False
+    
+    # Системные клавиши, которые НЕ БЛОКИРУЕМ
+    safe_keys = {
+        'alt','left alt','right alt','alt gr',
+        'ctrl','left ctrl','right ctrl',
+        'shift','left shift','right shift',
+        'win','left win','right win','apps',
+        'f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11','f12',
+        'esc','escape','caps lock',
+        'up','down','left','right',
+        'home','end','page up','page down','insert',
+        'print screen','scroll lock','pause','num lock',
+        # Клавиши для управления
+        'i','I',  # правый Shift + I
+        'q','Q',  # Ctrl + Shift + Q
+        'p','P',  # правый Shift + P
+    }
+    
+    if event.name in safe_keys:
+        return False  # Пропускаем (НЕ блокируем)
+    return True  # Блокируем
+
+def enable_keyboard_block():
+    """Включает блокировку клавиатуры"""
+    global _hook_id
+    if _hook_id is None:
+        try:
+            _hook_id = keyboard.hook(keyboard_blocker, suppress=True)
+        except:
+            pass
+
+def disable_keyboard_block():
+    """Выключает блокировку клавиатуры"""
+    global _hook_id
+    if _hook_id is not None:
+        try:
+            keyboard.unhook(_hook_id)
+        except:
+            pass
+        _hook_id = None
+
+# Используем Windows SendInput для печати, чтобы обходить keyboard hook
+user32 = ctypes.WinDLL('user32', use_last_error=True)
+
+INPUT_KEYBOARD = 1
+KEYEVENTF_UNICODE = 0x0004
+KEYEVENTF_KEYUP = 0x0002
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = (("wVk", wintypes.WORD),
+                ("wScan", wintypes.WORD),
+                ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)))
+
+class _INPUT_union(ctypes.Union):
+    _fields_ = (("ki", KEYBDINPUT),)
+
+class INPUT(ctypes.Structure):
+    _fields_ = (("type", wintypes.DWORD),
+                ("u", _INPUT_union))
+
+def send_unicode_char(ch):
+    """Отправляет один символ через SendInput - обходит keyboard hook"""
+    if ch == '\n':
+        # Enter через виртуальный код VK_RETURN = 0x0D
+        for flags in (0, KEYEVENTF_KEYUP):
+            inp = INPUT(type=INPUT_KEYBOARD,
+                       u=_INPUT_union(ki=KEYBDINPUT(wVk=0x0D, wScan=0,
+                                                    dwFlags=flags, time=0,
+                                                    dwExtraInfo=None)))
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+        return
+    if ch == '\t':
+        for flags in (0, KEYEVENTF_KEYUP):
+            inp = INPUT(type=INPUT_KEYBOARD,
+                       u=_INPUT_union(ki=KEYBDINPUT(wVk=0x09, wScan=0,
+                                                    dwFlags=flags, time=0,
+                                                    dwExtraInfo=None)))
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+        return
+    
+    code = ord(ch)
+    # KEYDOWN
+    inp_down = INPUT(type=INPUT_KEYBOARD,
+                    u=_INPUT_union(ki=KEYBDINPUT(wVk=0, wScan=code,
+                                                  dwFlags=KEYEVENTF_UNICODE, time=0,
+                                                  dwExtraInfo=None)))
+    # KEYUP
+    inp_up = INPUT(type=INPUT_KEYBOARD,
+                  u=_INPUT_union(ki=KEYBDINPUT(wVk=0, wScan=code,
+                                                dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time=0,
+                                                dwExtraInfo=None)))
+    user32.SendInput(1, ctypes.byref(inp_down), ctypes.sizeof(inp_down))
+    user32.SendInput(1, ctypes.byref(inp_up), ctypes.sizeof(inp_up))
+
+def on_toggle_auto_type():
+    global auto_type_command
+    if auto_type_text:
+        auto_type_command = "TOGGLE"
+
+def auto_type_worker(session_id):
+    global auto_type_index, auto_type_command
+    is_typing_active = False
+    try:
+        while session_id == auto_type_session_id and auto_type_index < len(auto_type_text):
+            changed = False
+            
+            if auto_type_command:
+                cmd = auto_type_command
+                auto_type_command = None
+                
+                if cmd == "START":
+                    is_typing_active = True
+                    changed = True
+                elif cmd == "TOGGLE":
+                    is_typing_active = not is_typing_active
+                    changed = True
+
+            if changed:
+                ui_signals.show_signal.emit("ПЕЧАТЬ..." if is_typing_active else "ПАУЗА")
+                if is_typing_active:
+                    enable_keyboard_block()
+                else:
+                    disable_keyboard_block()
+
+            if is_typing_active:
+                ch = auto_type_text[auto_type_index]
+                try:
+                    # Используем SendInput напрямую через WinAPI -
+                    # это обходит наш keyboard hook, поэтому блокировка остается активной
+                    send_unicode_char(ch)
+                except Exception as e:
+                    print(f"[TYPE] Error: {e}")
+                    break
+                auto_type_index += 1
+                time.sleep(AUTO_TYPE_CHAR_DELAY)
+            else:
+                time.sleep(0.01)
+        if auto_type_index >= len(auto_type_text):
+            ui_signals.show_signal.emit("ЗАВЕРШЕНО")
+    finally:
+        disable_keyboard_block()
+        try:
+            keyboard.release('enter')
+            keyboard.release('tab')
+        except:
+            pass
+
+def start_auto_typing(text):
+    global auto_type_thread, auto_type_text, auto_type_index, auto_type_session_id, auto_type_command
+    if not AUTO_TYPE_ENABLED or not text or text == "ERR": return
+    with auto_type_lock:
+        auto_type_session_id += 1
+        auto_type_text = text
+        auto_type_index = 0
+        auto_type_command = None  # Ждем команды на старт
+        auto_type_thread = threading.Thread(target=auto_type_worker, args=(auto_type_session_id,), daemon=True)
+        auto_type_thread.start()
+        ui_signals.show_signal.emit("!")
+
+def process_test():
+    global is_processing
+    if is_processing: return
+    is_processing = True
+    ui_signals.show_signal.emit("...")
+    
+    def background_task():
+        global is_processing
+        try:
+            screenshot = ImageGrab.grab()
+            img_byte_arr = io.BytesIO()
+            screenshot.save(img_byte_arr, format='PNG')
+            ans = ask_gemini(img_byte_arr.getvalue())
+            
+            if looks_like_code_answer(ans):
+                start_auto_typing(ans)
+            else:
+                ui_signals.show_signal.emit(ans)
+        except Exception as e:
+            ui_signals.show_signal.emit(f"ERROR: {e}")
+        finally:
+            is_processing = False
+
+    threading.Thread(target=background_task, daemon=True).start()
+
+def shutdown():
+    os._exit(0)
+
+class TransparentWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.label = QLabel("", self)
+        self.label.setStyleSheet(f"color: {UI_COLOR}; background-color: rgba(0, 0, 0, 0); padding: 5px;")
+        self.label.setFont(QFont("Consolas", 9))
+        self.label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.setGeometry(MARGIN_LEFT, QApplication.desktop().height() - WINDOW_HEIGHT - MARGIN_BOTTOM, WINDOW_WIDTH, WINDOW_HEIGHT)
+        ui_signals.show_signal.connect(self.display_text)
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.hide_text)
+
+    def display_text(self, text):
+        self.label.setText(text)
+        self.label.adjustSize()
+        self.show()
+        self.timer.start(DURATION_MS if "КОД ГОТОВ" not in text else 10000)
+
+    def hide_text(self):
+        self.label.setText("")
+        self.timer.stop()
+
+def setup_hotkeys():
+    keyboard.add_hotkey(AUTO_TYPE_TOGGLE_KEY, on_toggle_auto_type, suppress=True)
+    keyboard.add_hotkey(HOTKEY_START, process_test, suppress=True)
+    keyboard.add_hotkey(HOTKEY_DB, load_db, suppress=True)
+    keyboard.add_hotkey(HOTKEY_JAVA, load_java, suppress=True)
+    keyboard.add_hotkey(HOTKEY_EXIT, shutdown, suppress=True)
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Запуск ассистента...")
+    print("=" * 60)
+    setup_hotkeys()
+    app = QApplication(sys.argv)
+    window = TransparentWindow()
+    ui_signals.show_signal.emit("#")
+    sys.exit(app.exec_())

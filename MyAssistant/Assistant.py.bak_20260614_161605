@@ -1,0 +1,715 @@
+import sys
+import threading
+import time
+import base64
+import io
+import json
+import os
+import re
+import hashlib
+import subprocess
+import requests
+import ctypes
+from ctypes import wintypes
+from PIL import Image, ImageGrab
+import keyboard
+
+# ========== НАСТРОЙКИ ==========
+GEMINI_API_KEYS = [
+    "AIzaSyAPinx0-Iwfmb5_LuE4lH1lpyZurG4UaRI",
+    "AIzaSyA-1RZtkqyTABk0ieNkcaTbnH-rM4T1CIM",
+    "AIzaSyCWaZX5NW54Fmz-j-OzW7-aEgmGL6ek9ac",
+    "AIzaSyCf--vqqkRUr8Qm8e6M1he_BmsqPIbK0WI",
+    "AIzaSyBXPOEnVRd8-nMVGHtdFmqJ07-YVzjZ_Qk",
+    "AIzaSyC15PHdhUeDOS-o3Njgt-5Svwu6Tcllq-4",
+]
+
+MODELS_TO_TRY = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash-lite",
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-flash-lite-preview",
+]
+
+UI_COLOR = "#666666"
+DURATION_MS = 2200
+WINDOW_WIDTH = 400
+WINDOW_HEIGHT = 200
+MARGIN_LEFT = 15
+MARGIN_BOTTOM = 65
+
+DB_FILE = "all_materials.txt"
+JAVA_FILE = "java_materials.txt"
+
+# --- КЭШИРОВАНИЕ ---
+CACHE_ENABLED = True
+CACHE_CREATE_ENABLED = False
+CACHE_TTL = 86400
+CACHE_MIN_TOKENS = 1024
+CACHE_NAME_FILE = os.path.join(os.environ.get("PUBLIC", "C:\\Users\\Public"), "gemini_cache_name.txt")
+cache_name = None
+
+current_materials = None
+current_type = None
+materials_loaded = False
+answer_cache = {}
+is_processing = False
+
+# --- ПЕРЕМЕННЫЕ MANUAL AUTO-TYPE ---
+auto_type_buffer = ""
+auto_type_buffer_index = 0
+auto_type_active = False
+_dynamic_hook_id = None
+
+# Очередь для отложенной отправки символов (1 элемент = 1 символ за раз)
+_pending_char = None
+_pending_lock = threading.Lock()
+_pending_event = threading.Event()
+
+# Момент, когда хук сам остановил печать (для защиты от мгновенного повторного
+# включения тем же нажатием Right Shift+I через глобальный хоткей).
+_last_stop_time = 0.0
+
+PYQT_SITE_PACKAGES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "python", "Lib", "site-packages")
+if os.path.isdir(PYQT_SITE_PACKAGES) and PYQT_SITE_PACKAGES not in sys.path:
+    sys.path.insert(0, PYQT_SITE_PACKAGES)
+
+from PyQt5.QtWidgets import QApplication, QLabel, QWidget
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt5.QtGui import QFont
+
+class UISignals(QObject):
+    show_signal = pyqtSignal(str)
+
+ui_signals = UISignals()
+
+BASE_INSTRUCTION = """Ты — эксперт по Computer Science и базам данных, а также по Java.
+
+Формат ответа для тестов (СТРОГО):
+1. После анализа напиши ===ОТВЕТЫ=== на отдельной строке.
+2. После разделителя — каждый ответ с новой строки в формате: НОМЕР_ВОПРОСА:ОТВЕТ
+3. Для вопросов с буквами (A,B,C): пиши слитно (ABD)
+4. Для True/False: только T или F (НЕ TRUE/FALSE)
+5. Для вопросов без вариантов: пронумеруй сверху вниз и напиши номера правильных ответов слитно (24)
+
+Если на изображении задача на программирование:
+- игнорируй формат тестовых ответов
+- выдай только чистый код
+- без комментариев
+- без Markdown
+- без блоков ```.
+
+Пример:
+===ОТВЕТЫ===
+14:ABD
+15:T
+16:24
+
+НЕ ДОБАВЛЯЙ никаких пояснений, текста, рассуждений. Только ответы после разделителя. Ничего до разделителя тоже не пиши, кроме анализа, но после разделителя — только ответы."""
+
+# ---------- ФУНКЦИИ КЭШИРОВАНИЯ ----------
+def estimate_token_count(text):
+    compact_text = text.strip()
+    if not compact_text:
+        return 0
+    return max(1, len(compact_text) // 4)
+
+def create_context_cache(api_key, content, ttl_seconds=CACHE_TTL):
+    if not CACHE_CREATE_ENABLED:
+        print("[CACHE] Явное создание кэша отключено, пропускаю.")
+        return None
+
+    token_count = estimate_token_count(content)
+    print(f"[CACHE] Попытка создать кэш с ключом {api_key[:8]}... (TTL={ttl_seconds} сек, tokens≈{token_count})")
+    url = f"https://generativelanguage.googleapis.com/v1beta/cachedContents?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "model": "models/gemini-2.5-flash",
+        "contents": [{"role": "user", "parts": [{"text": content}]}],
+        "ttl": f"{ttl_seconds}s"
+    }
+    start = time.time()
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        elapsed = time.time() - start
+        print(f"[CACHE] Ответ получен за {elapsed:.2f} сек, статус {resp.status_code}")
+        if resp.status_code == 200:
+            name = resp.json().get("name")
+            print(f"[CACHE] Успех! Имя кэша: {name}")
+            return name
+        if resp.status_code == 400:
+            try:
+                error_message = resp.json().get("error", {}).get("message", "Unknown cache error")
+            except Exception:
+                error_message = resp.text
+            print(f"[CACHE] Кэш не создан: {error_message}")
+            return None
+        print(f"[CACHE] Неожиданный статус {resp.status_code}: {resp.text[:300]}")
+        return None
+    except Exception as e:
+        print(f"[CACHE] Ошибка создания кэша: {e}")
+        return None
+
+def load_materials(file_path, material_type, indicator):
+    global current_materials, current_type, materials_loaded, cache_name
+    print(f"\n[MATERIAL] Загрузка {file_path}...")
+    if not os.path.exists(file_path):
+        print(f"[MATERIAL] Файл не найден!")
+        ui_signals.show_signal.emit("Файл не найден!")
+        return
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            current_materials = f.read()
+        current_type = material_type
+        materials_loaded = True
+        print(f"[MATERIAL] Успешно загружено {len(current_materials)} символов (тип: {material_type})")
+
+        if CACHE_ENABLED:
+            current_tokens = estimate_token_count(current_materials)
+            if current_tokens < CACHE_MIN_TOKENS:
+                print(f"[CACHE] Материала слишком мало для явного кэша: ≈{current_tokens} токенов, минимум {CACHE_MIN_TOKENS}. Пропускаю.")
+                cache_name = None
+            elif os.path.exists(CACHE_NAME_FILE):
+                with open(CACHE_NAME_FILE, 'r') as f:
+                    cache_name = f.read().strip()
+                print(f"[CACHE] Найден сохранённый кэш: {cache_name}")
+            elif CACHE_CREATE_ENABLED:
+                print("[CACHE] Файл кэша не найден, создаём новый...")
+                cache_name = create_context_cache(GEMINI_API_KEYS[0], current_materials, CACHE_TTL)
+                if cache_name:
+                    with open(CACHE_NAME_FILE, 'w') as f:
+                        f.write(cache_name)
+                    print("[CACHE] Имя кэша сохранено в файл.")
+            else:
+                print("[CACHE] Явное создание кэша отключено, пропускаю.")
+                cache_name = None
+        ui_signals.show_signal.emit(indicator)
+    except Exception as e:
+        print(f"[MATERIAL] Ошибка загрузки: {e}")
+        ui_signals.show_signal.emit("Ошибка загрузки")
+
+def load_db():
+    print("\n--- Загрузка лекций БД ---")
+    load_materials(DB_FILE, 'DB', '@')
+
+def load_java():
+    print("\n--- Загрузка лекций Java ---")
+    load_materials(JAVA_FILE, 'Java', '$')
+
+def ask_gemini(image_bytes):
+    img_hash = hashlib.md5(image_bytes).hexdigest()
+    if img_hash in answer_cache:
+        print("[CACHE] Изображение уже было в кэше, возвращаю готовый ответ.")
+        return answer_cache[img_hash]
+
+    print("\n[IMAGE] Сжатие скриншота...")
+    img = Image.open(io.BytesIO(image_bytes))
+    img.thumbnail((800, 800))
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG', quality=60)
+    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    print(f"[IMAGE] Сжатый размер base64: {len(img_b64)} символов.")
+
+    if materials_loaded and current_materials:
+        full_prompt = f"""Лекции по {current_type.upper()}:
+{current_materials}
+
+{BASE_INSTRUCTION}
+
+Теперь ответь на вопросы на изображении, строго соблюдая формат."""
+        print(f"[PROMPT] Используются лекции по {current_type}, длина полного промпта: {len(full_prompt)} символов.")
+    else:
+        full_prompt = BASE_INSTRUCTION + "\n\nОтветь на вопросы, строго соблюдая формат."
+        print("[PROMPT] Лекции не загружены, промпт состоит только из инструкции.")
+
+    for model_idx, model in enumerate(MODELS_TO_TRY):
+        print(f"\n[MODEL] Пробую модель {model} ({model_idx+1}/{len(MODELS_TO_TRY)})...")
+        for key_idx, key in enumerate(GEMINI_API_KEYS):
+            key_short = key[:8] + "..." + key[-4:]
+            print(f"  [KEY] Ключ {key_short} ({key_idx+1}/{len(GEMINI_API_KEYS)})...", end="", flush=True)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+            payload = {
+                "contents": [{
+                    "parts": [
+                        {"text": full_prompt},
+                        {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                    ]
+                }]
+            }
+            if CACHE_ENABLED and cache_name and ("2.5" in model or "3." in model):
+                payload["cached_content"] = cache_name
+                print(" (с кэшем)", end="")
+
+            start = time.time()
+            try:
+                resp = requests.post(url, json=payload, timeout=10)
+                elapsed = time.time() - start
+                print(f" -> ответ {resp.status_code} за {elapsed:.2f} сек")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw = data['candidates'][0]['content']['parts'][0]['text']
+                    print(f"[SUCCESS] Модель {model} вернула ответ (первые 100 символов): {raw[:100]}...")
+                    clean = clean_answer(raw)
+                    print(f"[CLEAN] После очистки: {clean}")
+                    answer_cache[img_hash] = clean
+                    return clean
+                elif resp.status_code == 404:
+                    print(f"[SKIP] Модель {model} не найдена (404), переход к следующей.")
+                    break
+                else:
+                    print(f"[WARN] Неожиданный статус {resp.status_code}, пробую следующий ключ.")
+                    continue
+            except Exception as e:
+                elapsed = time.time() - start
+                print(f" -> исключение через {elapsed:.2f} сек: {e}")
+                continue
+
+    print("[FAIL] Все модели и ключи исчерпаны. Возвращаю ERR.")
+    return "ERR"
+
+def clean_answer(raw):
+    print("[CLEAN] Начинаю очистку ответа...")
+    if looks_like_code_answer(raw):
+        print("[CLEAN] Ответ похож на код, вызываю extract_code_answer.")
+        return extract_code_answer(raw)
+
+    text = raw
+    if "===ОТВЕТЫ===" in raw:
+        text = raw.split("===ОТВЕТЫ===")[-1]
+        print("[CLEAN] Разделитель найден, беру часть после ===ОТВЕТЫ===.")
+
+    text = text.strip()
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    if not lines:
+        return "ERR"
+
+    is_test_format = any(re.match(r"^\d+:.*", l) for l in lines)
+
+    if is_test_format:
+        filtered = []
+        for l in lines:
+            match = re.match(r"^(\d+):(.*)", l)
+            if match:
+                num = match.group(1)
+                ans = re.sub(r"[^A-Z0-9]", "", match.group(2).upper())
+                if ans:
+                    filtered.append(f"{num}:{ans}")
+        if filtered:
+            result = "\n".join(filtered)
+            print(f"[CLEAN] Тестовый формат: {filtered}")
+            return result
+
+    print("[CLEAN] Неизвестный формат, возвращаю как текст.")
+    return text
+
+def extract_code_answer(raw):
+    print("[CODE] Извлекаю чистый код...")
+    text = raw.strip()
+    if "```" in text:
+        blocks = re.findall(r"```(?:[a-zA-Z0-9_+-]+)?\s*([\s\S]*?)```", text)
+        if blocks:
+            text = "\n".join(block.strip() for block in blocks if block.strip())
+        else:
+            text = text.replace("```", "").strip()
+
+    if "===ОТВЕТЫ===" in text:
+        text = text.split("===ОТВЕТЫ===")[-1].strip()
+
+    lines = [line.rstrip() for line in text.split("\n")]
+    return "\n".join(lines).strip()
+
+def looks_like_code_answer(answer):
+    if not answer or answer == "ERR":
+        return False
+    if "```" in answer:
+        return True
+    if re.search(r"^\d+:[A-Z0-9]+$", answer, re.MULTILINE):
+        return False
+
+    markers = [
+        "def ", "class ", "import ", "from ", "return ", "if ",
+        "public ", "static ", "void ", "println", "System.out",
+        "function ", "console.", "#include", "print(", "let ", "const ",
+        "{", "}", ";", "(", ")", "[]",
+        "select ", "insert ", "update ", "delete ", "from ", "where ",
+        "create table", "join ", "group by", "order by"
+    ]
+    lowered = answer.lower()
+    score = sum(1 for marker in markers if marker in lowered)
+    sql_keywords = ["table", "primary key", "foreign key", "references", "values", "into"]
+    score += sum(1 for kw in sql_keywords if kw in lowered)
+    print(f"[CODE] Кодовый скор: {score}")
+    return score >= 2
+
+
+# ============================================================
+# MANUAL ADVANCE TYPING v9 — ЮНИКОДНАЯ ПЕЧАТЬ ИЗ ПОТОКА
+# ============================================================
+# Как работает:
+# 1) keyboard.write() шлёт ВИРТУАЛЬНЫЕ КОДЫ — на русской раскладке каша.
+#    Используем SendInput с KEYEVENTF_UNICODE (не зависит от раскладки).
+# 2) SendInput из контекста хука ловится самим хуком и блокируется.
+#    Поэтому: хук кладёт символ в очередь -> поток-отправитель СНИМАЕТ хук,
+#    шлёт символ, ставит хук обратно.
+# 3) Выход:
+#    * Right Shift + I  — пауза/выключение (вкл — глобальный хоткей toggle_typing,
+#                         выкл — сам хук _stop_typing; защита от двойного срабатывания)
+#    * Ctrl + Shift + Q — полный аварийный выход
+#    * Right Shift + P  — скриншот (символ не печатается)
+#    Модификаторы читаются напрямую keyboard.is_pressed(), поэтому
+#    снятие/возврат хука между символами НЕ ломает определение выхода.
+
+# ---------- ЮНИКОДНАЯ ОТПРАВКА ЧЕРЕЗ SendInput ----------
+user32 = ctypes.WinDLL('user32', use_last_error=True)
+
+INPUT_KEYBOARD = 1
+KEYEVENTF_UNICODE = 0x0004
+KEYEVENTF_KEYUP = 0x0002
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = (("wVk", wintypes.WORD),
+                ("wScan", wintypes.WORD),
+                ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)))
+
+class _INPUT_union(ctypes.Union):
+    _fields_ = (("ki", KEYBDINPUT),)
+
+class INPUT(ctypes.Structure):
+    _fields_ = (("type", wintypes.DWORD),
+                ("u", _INPUT_union))
+
+def send_unicode_char(ch):
+    """Отправляет ОДИН символ через SendInput с KEYEVENTF_UNICODE.
+    Не зависит от раскладки клавиатуры."""
+    if ch == '\n':
+        for flags in (0, KEYEVENTF_KEYUP):
+            inp = INPUT(type=INPUT_KEYBOARD,
+                       u=_INPUT_union(ki=KEYBDINPUT(wVk=0x0D, wScan=0,
+                                                      dwFlags=flags, time=0,
+                                                      dwExtraInfo=None)))
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+        return
+    if ch == '\t':
+        for flags in (0, KEYEVENTF_KEYUP):
+            inp = INPUT(type=INPUT_KEYBOARD,
+                       u=_INPUT_union(ki=KEYBDINPUT(wVk=0x09, wScan=0,
+                                                      dwFlags=flags, time=0,
+                                                      dwExtraInfo=None)))
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+        return
+
+    code = ord(ch)
+    inp_down = INPUT(type=INPUT_KEYBOARD,
+                    u=_INPUT_union(ki=KEYBDINPUT(wVk=0, wScan=code,
+                                                  dwFlags=KEYEVENTF_UNICODE, time=0,
+                                                  dwExtraInfo=None)))
+    inp_up = INPUT(type=INPUT_KEYBOARD,
+                  u=_INPUT_union(ki=KEYBDINPUT(wVk=0, wScan=code,
+                                                dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time=0,
+                                                dwExtraInfo=None)))
+    user32.SendInput(1, ctypes.byref(inp_down), ctypes.sizeof(inp_down))
+    user32.SendInput(1, ctypes.byref(inp_up), ctypes.sizeof(inp_up))
+
+
+# ---------- УПРАВЛЕНИЕ ХУКОМ ----------
+def remove_dynamic_hook():
+    """Снимает динамический хук если он есть."""
+    global _dynamic_hook_id
+    if _dynamic_hook_id is not None:
+        try:
+            keyboard.unhook(_dynamic_hook_id)
+        except Exception:
+            pass
+        _dynamic_hook_id = None
+
+
+def sender_loop():
+    """
+    Фоновый поток: ждёт сигнала, забирает символ из очереди,
+    СНИМАЕТ хук (чтобы Windows не поймала наш же синтетический символ),
+    отправляет символ через SendInput (не зависит от раскладки),
+    и ставит хук обратно, если печать ещё активна и буфер не пуст.
+    """
+    global _pending_char, _dynamic_hook_id, auto_type_active
+
+    while True:
+        _pending_event.wait()
+        _pending_event.clear()
+
+        if not auto_type_active:
+            continue
+
+        with _pending_lock:
+            ch = _pending_char
+            _pending_char = None
+
+        if ch is None:
+            continue
+
+        # Снимаем хук — иначе SendInput сгенерит событие, которое хук поймает
+        # и заблокирует (символ не напечатается, всё "залипнет").
+        remove_dynamic_hook()
+
+        # Отправляем символ — уже вне контекста хука, событие пройдёт в систему
+        send_unicode_char(ch)
+
+        time.sleep(0.002)  # даём Windows обработать синтетическое событие
+
+        # Решаем, что делать дальше
+        if auto_type_active and auto_type_buffer_index < len(auto_type_buffer):
+            # Ещё есть что печатать — ставим хук обратно
+            _dynamic_hook_id = keyboard.hook(typing_blocker, suppress=True)
+        elif auto_type_buffer_index >= len(auto_type_buffer):
+            # Буфер исчерпан — завершаем
+            auto_type_active = False
+            ui_signals.show_signal.emit("ЗАВЕРШЕНО")
+
+
+def _stop_typing(reason):
+    """Останавливает печать из контекста хука и запоминает время остановки."""
+    global auto_type_active, _last_stop_time
+    remove_dynamic_hook()
+    auto_type_active = False
+    _last_stop_time = time.time()
+    ui_signals.show_signal.emit(reason)
+    print(f"[HOOK] Печать остановлена: {reason}")
+
+
+def typing_blocker(event):
+    """
+    Хук во время активной печати. Каждое реальное нажатие -> один символ
+    из буфера. Реальные клавиши БЛОКИРУЮТСЯ, кроме комбинаций выхода.
+
+    ВАЖНО про keyboard 0.13.5: blocking-хук должен вернуть
+      True  -> ПРОПУСТИТЬ клавишу в программу,
+      False -> ЗАБЛОКИРОВАТЬ клавишу.
+    (Подтверждено по исходнику _KeyboardListener.direct_callback.)
+    Поэтому модификаторы возвращают True (и keyboard.is_pressed их видит),
+    а реальные клавиши и комбинации выхода — False.
+
+    Выход:
+      * Right Shift + I   — пауза/выключение
+      * Ctrl + Shift + Q  — полный аварийный выход
+      * Right Shift + P   — скриншот (символ не печатается)
+    """
+    global auto_type_buffer, auto_type_buffer_index, auto_type_active, _pending_char
+
+    # Отпускания пропускаем (иначе клавиши "залипнут")
+    if event.event_type != 'down':
+        return True
+
+    name = event.name
+
+    # Модификаторы ПРОПУСКАЕМ (True): чтобы система их видела и чтобы
+    # keyboard.is_pressed() корректно определял зажатые Shift/Ctrl.
+    if name in ('right shift', 'left shift', 'left ctrl', 'right ctrl',
+                'ctrl', 'shift', 'alt', 'right alt', 'left alt',
+                'left windows', 'right windows', 'caps lock', 'num lock'):
+        return True
+
+    # Текущее состояние модификаторов — напрямую из keyboard
+    rs_now = keyboard.is_pressed('right shift')
+    any_ctrl = keyboard.is_pressed('ctrl')
+    any_shift = keyboard.is_pressed('shift')
+
+    # ===== АВАРИЙНЫЙ ВЫХОД: Ctrl + Shift + Q =====
+    if name == 'q' and any_ctrl and any_shift:
+        auto_type_active = False
+        print("[HOOK] Ctrl+Shift+Q — полный выход")
+        shutdown()
+        return False  # блокируем 'q'
+
+    # ===== ПАУЗА/ВЫХОД: Right Shift + I =====
+    if name == 'i' and rs_now:
+        _stop_typing("ПАУЗА")
+        return False  # блокируем 'i'
+
+    # ===== Right Shift + P — скриншот, символ не печатаем =====
+    if name == 'p' and rs_now:
+        return False
+
+    # ===== КОНЕЦ БУФЕРА =====
+    if auto_type_buffer_index >= len(auto_type_buffer):
+        _stop_typing("ЗАВЕРШЕНО")
+        return False
+
+    # ===== СТАВИМ СЛЕДУЮЩИЙ СИМВОЛ В ОЧЕРЕДЬ, реальную клавишу блокируем =====
+    ch = auto_type_buffer[auto_type_buffer_index]
+    auto_type_buffer_index += 1
+
+    with _pending_lock:
+        _pending_char = ch
+    _pending_event.set()
+
+    return False  # блокируем реальную клавишу
+
+
+def toggle_typing():
+    """
+    Глобальный хоткей Right Shift + I.
+    ВКЛЮЧАЕТ печать. Выключение делает сам хук (_stop_typing),
+    поэтому здесь только включаем — и игнорируем повторный вызов,
+    если печать уже идёт или хук только что её остановил тем же нажатием.
+    """
+    global auto_type_active, _dynamic_hook_id, _pending_char
+
+    # Уже печатаем — выключение обработает хук, ничего не делаем.
+    if auto_type_active:
+        return
+
+    # Защита от того же самого нажатия Right Shift+I, которым хук
+    # только что поставил паузу (хоткей и хук ловят одно событие).
+    if time.time() - _last_stop_time < 0.4:
+        return
+
+    if not auto_type_buffer:
+        print("[TOGGLE] Буфер пуст, нечего печатать.")
+        return
+
+    if auto_type_buffer_index >= len(auto_type_buffer):
+        print("[TOGGLE] Буфер закончился, сброс.")
+        remove_dynamic_hook()
+        ui_signals.show_signal.emit("ЗАВЕРШЕНО")
+        return
+
+    auto_type_active = True
+    _pending_char = None
+    remove_dynamic_hook()
+    _dynamic_hook_id = keyboard.hook(typing_blocker, suppress=True)
+    ui_signals.show_signal.emit("ПЕЧАТЬ...")
+    print(f"[TOGGLE] Режим печати ВКЛЮЧЁН. Буфер: {auto_type_buffer_index}/{len(auto_type_buffer)}")
+
+
+def on_screenshot():
+    """Right Shift + P — скриншот"""
+    process_test()
+
+
+def on_exit():
+    """Ctrl + Shift + Q — выход"""
+    shutdown()
+
+
+def on_load_db():
+    """Ctrl + Shift + D — загрузить лекции БД"""
+    load_db()
+
+
+def on_load_java():
+    """Ctrl + Shift + J — загрузить лекции Java"""
+    load_java()
+
+
+def start_auto_typing(text):
+    """
+    Загружает ответ ИИ в буфер. Показывает "!".
+    Режим включается отдельно по Right Shift+I.
+    """
+    global auto_type_buffer, auto_type_buffer_index, auto_type_active
+
+    if not text or text == "ERR":
+        return
+
+    print(f"[MANUAL] Загружаю ответ в буфер ({len(text)} символов)")
+
+    # Если печать была активна — корректно выключаем перед загрузкой нового буфера
+    if auto_type_active:
+        remove_dynamic_hook()
+    auto_type_buffer = text
+    auto_type_buffer_index = 0
+    auto_type_active = False
+
+    ui_signals.show_signal.emit("!")
+    print(f"[MANUAL] Буфер готов! Нажми Right Shift+I для включения.")
+    print(f"[MANUAL] Буфер: {auto_type_buffer[:80]}...")
+
+
+def process_test():
+    global is_processing
+    if is_processing:
+        return
+    is_processing = True
+    ui_signals.show_signal.emit("...")
+
+    def background_task():
+        global is_processing
+        try:
+            screenshot = ImageGrab.grab()
+            img_byte_arr = io.BytesIO()
+            screenshot.save(img_byte_arr, format='PNG')
+            ans = ask_gemini(img_byte_arr.getvalue())
+
+            if looks_like_code_answer(ans):
+                start_auto_typing(ans)
+            else:
+                ui_signals.show_signal.emit(ans)
+        except Exception as e:
+            ui_signals.show_signal.emit(f"ERROR: {e}")
+        finally:
+            is_processing = False
+
+    threading.Thread(target=background_task, daemon=True).start()
+
+
+def register_hotkeys():
+    """Регистрирует все горячие клавиши"""
+    keyboard.add_hotkey('ctrl+shift+q', on_exit, suppress=True)
+    keyboard.add_hotkey('ctrl+shift+d', on_load_db, suppress=True)
+    keyboard.add_hotkey('ctrl+shift+j', on_load_java, suppress=True)
+    keyboard.add_hotkey('right shift+p', on_screenshot, suppress=True)
+    keyboard.add_hotkey('right shift+i', toggle_typing, suppress=True)
+    print("[HOTKEYS] Все горячие клавиши зарегистрированы")
+
+
+def shutdown():
+    remove_dynamic_hook()
+    try:
+        keyboard.unhook_all()
+    except Exception:
+        pass
+    os._exit(0)
+
+
+class TransparentWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.label = QLabel("", self)
+        self.label.setStyleSheet(f"color: {UI_COLOR}; background-color: rgba(0, 0, 0, 0); padding: 5px;")
+        self.label.setFont(QFont("Consolas", 9))
+        self.label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.setGeometry(MARGIN_LEFT, QApplication.desktop().height() - WINDOW_HEIGHT - MARGIN_BOTTOM, WINDOW_WIDTH, WINDOW_HEIGHT)
+        ui_signals.show_signal.connect(self.display_text)
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.hide_text)
+
+    def display_text(self, text):
+        self.label.setText(text)
+        self.label.adjustSize()
+        self.show()
+        self.timer.start(DURATION_MS if "КОД ГОТОВ" not in text else 10000)
+
+    def hide_text(self):
+        self.label.setText("")
+        self.timer.stop()
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Запуск ассистента v9 (юникодная печать из потока)...")
+    print("=" * 60)
+    register_hotkeys()
+
+    # Запускаем поток-отправитель один раз при старте
+    threading.Thread(target=sender_loop, daemon=True).start()
+
+    app = QApplication(sys.argv)
+    window = TransparentWindow()
+    ui_signals.show_signal.emit("#")
+    sys.exit(app.exec_())

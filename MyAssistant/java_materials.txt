@@ -1,0 +1,1514 @@
+============================================================
+Programming Languages II – Full Lecture Notes (Weeks 1–12)
+============================================================
+
+==============================
+WEEK 1
+==============================
+
+1. The Paradigm Shift: From "doing" to "being"
+In C, you likely organized your programs around code (functions/procedures) acting on data. This is called Structured Programming.
+In Java, we organize programs around Objects.
+Encapsulation: We bundle the data (attributes) and the code that acts on that data (methods) into a single unit called an object.
+
+Analogy:
+- C approach: You have a struct Car and a separate function drive_car(struct Car* c). The data is passive; the code does the work.
+- Java approach: You have a Car object that knows how to drive() itself. The data and behavior are together.
+
+2. Core Concepts: Class vs. Object
+This is the most critical distinction for this week.
+Class: This is the blueprint, template, or logic. It doesn't exist physically in memory as data yet. It just describes what something should look like.
+Analogy: The recipe for a cake. You can't eat the recipe.
+Object: This is the instance. It is the real entity created based on the class description.
+Analogy: The actual cake baked from the recipe. You can bake 100 distinct cakes (objects) from one recipe (class).
+Think about it: In a university system, Student is the Class (name, ID, grades). You (as a student) are an Object (an instance of Student).
+
+3. Three key OOP concepts
+
+1. Encapsulation
+This mechanism binds together code and the data it manipulates, keeping both safe from outside interference and misuse.
+The Essence: Within an object, code or data can be private (accessible only to that object) or public (accessible by other parts of the program).
+Example from the slides: A Bank Account.
+The account balance must be private data; otherwise, anyone could access or change it directly. The balance can only be accessed through verified, public methods, such as withdrawing or transferring money. This way, the class manages the data (balance) and the operations (transfers) as a single unit.
+
+2. Inheritance
+Inheritance is the process by which one object can acquire the properties of another object. This supports the concept of hierarchical classification.
+The Essence: You don't have to write everything from scratch. A subclass (child) inherits general attributes from a superclass (parent) and only needs to define the qualities that make it unique.
+Example from your slides: Fruit and Apple.
+"Fruit" is a general class that possesses certain qualities (e.g., edible). "Apple" is a subclass of Fruit. It logically inherits the qualities of fruit (it is edible) but also defines specific characteristics unique to an apple (e.g., grows on trees, not tropical).
+
+3. Polymorphism
+The word comes from Greek, meaning "many forms." It allows one interface to access a general class of actions.
+The Essence: "One interface, multiple methods". It is possible to design a generic interface for a group of related activities.
+Example from the slides: a Steering Wheel.
+The steering wheel (the interface) is the same regardless of the actual steering mechanism used (manual, power, etc.). Once you know how to operate the steering wheel, you can drive any type of car; you don't need to know how the engine works internally.
+
+4. How Java Runs: The JVM
+In C, you compile code directly to machine language for a specific computer. Java is different.
+1. You write .java source code.
+2. The compiler turns it into Bytecode (class file).
+3. The Java Virtual Machine (JVM) executes this bytecode.
+Why? This makes Java platform-independent. "Write Once, Run Anywhere". As long as a computer has a JRE (Java Runtime Environment), your code will run.
+
+5. Your First Program: Hello World
+Let's look at the classic entry point.
+
+/* This is a simple Java program. Call this file Example.java. */
+class Example {
+    // A Java program begins with a call to main().
+    public static void main(String[] args) {
+        System.out.println("Hello World!");
+    }
+}
+
+Key Differences from C:
+1. Everything is in a Class: Notice the code lives inside class Example. In Java, no function exists "floating" outside a class.
+2. public static void main: Similar to C's main(), but strictly defined.
+   - String[] args: This is how we handle command-line arguments (similar to argv in C, but easier).
+3. System.out.println: This is Java's version of printf. It prints a line to the console.
+
+Week 1 Practice Exercises
+Here are your tasks for this week to get comfortable with the environment.
+
+Exercise 1: The Environment
+1. Download and install the JDK (Java Development Kit).
+2. Install an IDE. We recommend Apache NetBeans or IntelliJ IDEA.
+
+Exercise 2: Hello You
+Modify the "Hello World" program.
+Make it print three separate lines:
+1. Your Name
+2. Your Neptune Code (or Student ID)
+3. A favorite quote.
+Tip: Remember that Java statements end with a semicolon; just like in C.
+
+Exercise 3: Conceptual Design
+Look around your room. Choose an object (e.g., a Monitor, a Coffee Mug, a Cat).
+Write down (on paper or in a comment):
+What is the Class name? What Data (attributes) does it have? (e.g., color, weight, is_on). What Methods (actions) can it perform? (e.g., turnOn, drink, purr).
+
+Challenge of the Week (Optional)
+The Manual Compile
+Don't use the "Run" button in your IDE!
+1. Write your code in a simple text editor (like Notepad or Vim).
+2. Open your terminal/command line.
+3. Compile it using the command: javac YourFile.java
+4. Run it using the command: java YourFile
+
+Code Clinic & Assessment
+Code Clinic: We will review the installation process and common setup errors.
+Let's check your understanding before you start installing tools:
+
+Based on the "Recipe vs. Cake" analogy we discussed, if we were building a banking system, what would be the Class and what would be the Object?
+A) The Class is "Account #1234 with $500", and the Object is "BankAccount".
+B) The Class is "BankAccount" (defining that accounts have a balance), and the Object is "Account #1234".
+Which one do you think is correct?
+
+==============================
+WEEK 2
+==============================
+
+Week 2: Basic elements of the Java language.
+
+1. Variables and Data Types: Primitives vs. References
+In Java, every variable must have a declared type. Data types are split into two main branches: Primitive and Non-Primitive (Reference) types.
+
+Primitive Types: These hold simple, raw values. Java has 8 primitive types:
+int: 32-bit integer (e.g., 42, -10).
+double: 64-bit floating-point number (e.g., 3.14).
+boolean: Represents true or false (in C, you used 0 and 1, but Java strictly requires the boolean type).
+char: A single 16-bit Unicode character (e.g., 'A').
+Others: byte, short, long, float.
+
+Reference Types: These contain a reference (or pointer) to an object in memory.
+Examples include String, Arrays, and any Class you create.
+
+Clean Code Tip - Naming Conventions:
+- Classes: Always start with an Uppercase letter (e.g., BankAccount, Student).
+- Variables and Methods: Always start with a lowercase letter and use camelCase (e.g., thisIsAGoodMethodName(), accountBalance).
+- Constants: Written in ALL_CAPS with underscores.
+
+2. Control Statements: Making Decisions and Looping
+Because Java's syntax is heavily based on C, you already know how to use these!
+
+Selections:
+// Two-way selection
+if (temperature > 30) {
+    System.out.println("It's hot!");
+} else {
+    System.out.println("It's nice.");
+}
+
+Loops: Java supports while, do-while, and the classic for loop.
+// A classic for-loop
+for(int count = 0; count < 5; count = count + 1) {
+    System.out.println("This is count: " + count);
+}
+
+3. Interactivity: Reading from the Console
+To make our programs interesting, we need to read input from the user. In C, you used scanf. In Java, the most preferred method is using the Scanner class.
+
+Let's look at a complete example:
+
+import java.util.Scanner; // 1. We must import the Scanner class to use it
+
+class GetInputFromConsole {
+    public static void main(String args[]) {
+        // 2. Create a Scanner object that reads from standard input (the keyboard)
+        Scanner in = new Scanner(System.in);
+
+        System.out.println("Please enter an integer:");
+        // 3. Use the convenient nextInt() method to parse an integer
+        int a = in.nextInt();
+
+        System.out.println("You entered integer " + a);
+    }
+}
+
+Code Explanation:
+1. import java.util.Scanner; The Scanner class is not loaded by default. We have to tell Java where to find it.
+2. Scanner in = new Scanner(System.in); We are creating a new Object of type Scanner. System.in tells the Scanner to look at the keyboard input.
+3. in.nextLine(); This method halts the program and waits for the user to type an integer and press Enter. The Scanner parses this and stores it in the variable a.
+
+Week 2 Practice Exercises
+It's time to write some code! Create a new class for each of these tasks.
+
+1. Ask for the current temperature, then print it out:
+   - Below freezing, if below 0 degrees
+   - Average, if 0 or above, but less than 30
+   - Too hot, if 30 or above.
+
+2. It's bad weather, there's lightning.
+   Ask the user how many seconds after the lightning struck they heard the thunder!
+   Calculate how far away the lightning struck them! Speed of sound: 300m/s
+   Repeat if the value is negative!
+
+3. Ask for an age as a number, between 1 and 20, draw the user a cake with as many stars as their age!
+   Example: How old are you? (between 1-20): 5
+   *****
+   *****
+   *****
+   Repeat if the value is outside the interval!
+
+Error-Based Learning: Spot the Bug!
+A student tried to write a simple program that asks for a decimal number (like 3.14) and stores it, but their code won't compile.
+
+import java.util.Scanner;
+
+class DecimalReader {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Enter a decimal number:");
+        int myNumber = scanner.nextDouble();
+        System.out.println("You entered: " + myNumber);
+    }
+}
+
+Look closely at the data types. Why is Java throwing a compilation error on the line int myNumber = scanner.nextDouble(); and how would you fix it based on what we learned about primitive types?
+
+==============================
+WEEK 3
+==============================
+
+Week 3: Classes, Methods, and Polymorphism
+
+1. Creating Classes: The Blueprint of Objects
+As we discussed in Week 1, a class is a logical abstraction—a template that defines the form of an object. It specifies both the data (instance variables) and the code (methods) that will operate on that data.
+
+Let's look at a concrete example. We will create a Human class:
+
+class Human {
+    // Instance variables (Data)
+    String name;
+    int year_of_birth;
+}
+
+public class HumanProject {
+    public static void main(String[] args) {
+        // Create a Human object called mary
+        Human mary = new Human();
+        // Use dot operator to access a member
+        mary.name = "Mary Jane";
+        mary.year_of_birth = 2002;
+    }
+}
+
+Crucial Concept: References vs. Objects
+In C, you used pointers. In Java, we use References. When you write Human peter; you are not creating a Human object. You are creating a reference variable (like a remote control) that is currently pointing to nothing (null).
+To actually create the object in memory, you must use the new keyword: peter = new Human();
+
+If you do this: Human clone = peter; you did not copy the object! You created a reference copy. Both peter and clone now point to the exact same object in memory. If you change clone.name, peter.name changes too.
+
+2. Writing Methods: Giving Objects Behavior
+Methods are subroutines that manipulate the data defined by the class. In C, you called them functions.
+
+Let's add a method to our Human class to calculate their age:
+
+import java.util.Calendar;
+
+class Human {
+    String name;
+    int year_of_birth;
+
+    // A method to calculate age
+    int getAge() {
+        int current_year = Calendar.getInstance().get(Calendar.YEAR);
+        return current_year - year_of_birth;
+    }
+}
+
+3. Constructors and the this Keyword
+How do we set the initial state of an object elegantly? We use a Constructor. A constructor initializes an object when it is created. It has the exact same name as its class and no return type.
+
+class Human {
+    String name;
+    int year_of_birth;
+
+    // Parameterized Constructor
+    public Human(String name, int year_of_birth) {
+        this.name = name;
+        this.year_of_birth = year_of_birth;
+    }
+}
+
+What is this? Notice how our parameter is called name, and our instance variable is also called name. To tell Java we mean the instance variable of the current object, we use the this keyword. It is an implicit reference to the invoking object.
+
+Clean Code Tip: Always use parameterized constructors to ensure your objects are created in a valid state right from the start, rather than creating an empty object and filling data in line-by-line later.
+
+4. Method Overloading (Compile-time Polymorphism)
+Polymorphism means "many forms". One way Java achieves this is through Method Overloading. Two or more methods in the same class can have the same name if they differ in their parameter list (different number of parameters, different types, or both).
+
+static void printrow(int n, char c) {
+    for (int i = 0; i < n; i++) {
+        System.out.print(c);
+    }
+    System.out.println();
+}
+
+// Overloaded method: Same name, different parameters
+static void printrow(int n) {
+    printrow(n, '-'); // Calls the other method with a default character
+}
+
+Error-Based Learning: Spot the Bug!
+A student wrote the following BankAccount class, but when they try to print the balance after creating the object, it says 0.0 instead of 1000.0.
+
+class BankAccount {
+    String owner;
+    double balance;
+
+    public BankAccount(String owner, double balance) {
+        owner = owner;
+        balance = balance;
+    }
+}
+
+Can you spot the logic error in the constructor? How would you fix it using the concepts we just learned? (Think about variable shadowing!)
+
+Week 3 Practice Exercises
+
+Exercise 1: The Car Class
+Create a class Car with attributes: brand (String), model (String), year (int).
+Implement a constructor to initialize these attributes.
+Create a method displayInfo() that prints out the car details.
+Extend it by adding startEngine() (Prints "The car is starting!") and stopEngine() (Prints "The car is stopping!").
+
+Exercise 2: The Student Class
+Create a Student class with: name (String) and grades (double array).
+Constructor to initialize name and grades.
+Method calculateAverage() to return the average grade.
+
+==============================
+WEEK 4
+==============================
+
+Week 4: Frequently Used Classes & Strings
+
+Until now, we have used simple primitive types (int, double) and built our own classes (Car, Rectangle). But Java comes with a massive, powerful standard library.
+This week, we will focus on text manipulation and generating random values—essential tools for any programmer.
+
+1. Strings: They are NOT Arrays of Characters!
+In C, you handled text as an array of characters (char str[] = "Hello");. In Java, Strings are Objects. They belong to the String class, which means they come with powerful built-in methods.
+
+public class StringExample {
+    public static void main(String[] args) {
+        // Constructing strings
+        String str1 = new String("Hello");
+        String str2 = "Java strings are powerful."; // Shorthand, most common way
+
+        // 1. Length of the string
+        int len = str1.length(); // Returns 5
+
+        // 2. Getting a specific character (like str1[1] in C)
+        char letter = str1.charAt(1); // Returns 'e' (0-indexed!)
+
+        // 3. Finding a substring
+        int index = str2.indexOf("powerful"); // Returns the starting index
+
+        // 4. Extracting a part of the string
+        String sub = str2.substring(0, 4); // Returns "Java" (endIndex is exclusive)
+    }
+}
+
+2. Comparing Strings: The Golden Rule
+This is the #1 mistake C/C++ programmers make in Java. Never use == to compare the text inside two Strings. The == operator checks if two references point to the exact same memory location, not if the text is identical.
+Always use the .equals() method to compare the content.
+
+String a = "Apple";
+String b = new String("Apple");
+// BAD: This might be false because they are different objects in memory!
+if (a == b) { ... }
+// GOOD: This is true because the characters are the same.
+if (a.equals(b)) { ... } // Returns true
+
+3. Generating Random Numbers
+Games, simulations, and testing all require random numbers. Java provides two common ways to do this:
+
+Method A: The java.util.Random class
+import java.util.Random;
+Random random = new Random();
+// Generates a random integer between 0 (inclusive) and 100 (exclusive)
+int randomInt = random.nextInt(100);
+System.out.println("Random integer: " + randomInt);
+
+Method B: The Math.random() method
+// Generates a random double between 0.0 (inclusive) and 1.0 (exclusive)
+double randomDouble = Math.random();
+// Converts it to an integer between 0 and 99
+int randomInt = (int) (randomDouble * 100);
+
+4. Command-Line Arguments
+Remember public static void main(String[] args)? That args array holds information passed directly from the command line when the program is executed.
+
+// Display all command-line information.
+class CLDemo {
+    public static void main(String[] args) {
+        System.out.println("There are " + args.length + " command-line arguments.");
+        System.out.println("They are: ");
+        for(int i=0; i<args.length; i++) {
+            System.out.println("arg[" + i + "]:" + args[i]);
+        }
+    }
+}
+
+In-Class Solutions & Explanations
+
+Exercise 1: The Letter Printer
+Goal: Iterate through a string and print characters individually.
+Solution:
+public class LetterPrinter {
+    public static void main(String[] args) {
+        String message = "Java";
+        for (int i = 0; i < message.length(); i++) {
+            char letter = message.charAt(i);
+            System.out.println("Index " + i + ":" + letter);
+        }
+    }
+}
+Explanation: In C, you would loop until you hit the null terminator (\0). In Java, Strings don't use null terminators. We strictly use length() to get the size. Also, point out the parentheses: for arrays, it's array.length (a property), but for Strings, it's string.length() (a method call).
+
+Exercise 2: Text Extractor
+Goal: Find the first and last occurrence of a character, and extract the text between them.
+Solution:
+public class TextExtractor {
+    public static void main(String[] args) {
+        String text = "The quick brown fox jumps over the lazy dog";
+        String targetStr = "o";
+        int firstIndex = text.indexOf(targetStr);
+        int lastIndex = text.lastIndexOf(targetStr);
+        if (firstIndex == -1 || firstIndex == lastIndex) {
+            System.out.println("Cannot extract: The character does not appear twice.");
+        } else {
+            String result = text.substring(firstIndex + 1, lastIndex);
+            System.out.println("Extracted text: " + result);
+        }
+    }
+}
+Explanation: Defensive Programming: indexOf and lastIndexOf return -1 if the string isn't found. Always validate your data!
+
+Exercise 3: The Anagram Checker
+Goal: Check if two strings contain the exact same letters in a different order using Arrays.sort().
+Solution:
+import java.util.Arrays;
+
+public class AnagramChecker {
+    public static boolean areAnagrams(String str1, String str2) {
+        str1 = str1.toLowerCase();
+        str2 = str2.toLowerCase();
+        if (str1.length() != str2.length()) {
+            return false;
+        }
+        char[] charArray1 = str1.toCharArray();
+        char[] charArray2 = str2.toCharArray();
+        Arrays.sort(charArray1);
+        Arrays.sort(charArray2);
+        return Arrays.equals(charArray1, charArray2);
+    }
+
+    public static void main(String[] args) {
+        System.out.println("listen and silent: " + areAnagrams("listen", "silent")); // true
+        System.out.println("apple and pale: " + areAnagrams("apple", "pale")); // false
+    }
+}
+Explanation: Strings are immutable, so we cannot sort a String directly. We must first break it down into a char[] array.
+
+Exercise 4: The Sorting Hat
+Goal: Determine alphabetical order using compareTo(str).
+Solution:
+public class SortingHat {
+    public static void main(String[] args) {
+        if (args.length < 2) {
+            System.out.println("Please provide two words as command-line arguments.");
+            return;
+        }
+        String word1 = args[0];
+        String word2 = args[1];
+        int result = word1.compareTo(word2);
+        if (result < 0) {
+            System.out.println(word1 + " comes before " + word2);
+        } else if (result > 0) {
+            System.out.println(word2 + " comes before " + word1);
+        } else {
+            System.out.println("The words are exactly the same!");
+        }
+    }
+}
+Explanation: compareTo() does exactly the same thing for Java Strings as strcmp() in C. It uses Unicode values to determine alphabetical order.
+
+Error-Based Learning: Spot the Bug!
+Wrote a program to check if a command-line argument matches a secret password.
+public class PasswordCheck {
+    public static void main(String[] args) {
+        String secret = "OpenSesame";
+        if (args[0] == secret) {
+            System.out.println("Access Granted!");
+        } else {
+            System.out.println("Access Denied!");
+        }
+    }
+}
+The user runs the program via terminal: java PasswordCheck OpenSesame.
+Instead of "Access Granted!", it prints "Access Denied!".
+Based on our lesson about Strings, why is this happening, and exactly what code should change to fix it?
+
+Week 4 Practice Exercises
+Exercise 1: Command-Line Calculator
+Create a program that takes three command-line arguments: an operation ("add", "subtract", "multiply", "divide"), and two numbers. Parse the arguments, calculate the result, and print it.
+
+Exercise 2: The Guessing Game
+Create a guessing game (1-100). The computer generates a random number. In a while loop, ask the user for guesses. The program should print "Smaller!" or "Larger!" until the user finds the correct number.
+
+==============================
+WEEK 5
+==============================
+
+Week 5: Encapsulation, static
+
+We are shifting our focus from simply creating classes to controlling how they are accessed and how data moves between methods. This is where your code becomes professional, secure, and robust.
+
+1. Controlling Access (Encapsulation)
+In Java, we don't want every part of a program to touch every variable. Imagine a BankAccount class: you wouldn't want a "hacker" class to be able to change the balance variable directly to $1,000,000.
+
+The Access Modifiers
+We use keywords to set the "security level" of our members:
+- private : Only accessible within the same class. This is the gold standard for variables (data).
+- public : Accessible from anywhere. Usually used for methods that provide a "controlled interface". Public methods often provide a controlled interface to private data.
+- protected : Accessible in the same package and by subclasses (more on this in the inheritance week).
+- Default (No modifier) : Accessible only within the same package.
+
+Why do this? It prevents misuse. By making data private and providing public methods (like deposit()), you can add logic to check if the amount is valid before changing the data.
+
+Getters and Setters: The Controlled Gates
+Since we often make our data private for safety, we use getter and setter methods to interact with that data in a verified way.
+- Getter: A method that returns the value of a private variable (e.g., getBalance()).
+- Setter: A method that updates the value. This is crucial for validation—for example, ensuring a triangle's side isn't negative or a car's refueling amount isn't too high.
+
+The toString() Method: Object Representation
+The toString() method is a special method used to provide a textual representation of an object. Instead of seeing a memory address, we can override this method to return a formatted string containing the object's instance variables (like a car's consumption and fuel level).
+
+Practice: The Bank Account Logic
+public class BankAccount {
+    private double balance; // Private data
+
+    // Setter (as a verified method)
+    public void deposit(double amount) {
+        if (amount > 0) {
+            balance += amount;
+        }
+    }
+
+    // Getter
+    public double getBalance() {
+        return balance;
+    }
+
+    // toString method
+    @Override
+    public String toString() {
+        return "Account Balance: $" + balance;
+    }
+}
+
+2. How Arguments Are Passed
+This is a classic "interview question" topic. How does Java handle variables when you pass them to a method?
+
+Type                  | Passing Mechanism       | What happens?
+Primitive Types       | Call-by-value           | A copy is made. Changes inside the method do not affect the original variable.
+Objects (String, etc.)| Call-by-reference (Implicitly) | A reference (pointer) is passed. Changes to the object's data inside the method will affect the original object.
+
+3. The static Keyword
+Sometimes you need a variable or method that belongs to the Class itself, not to a specific object.
+- Static Variables: Every instance of the class shares the same copy. If one car changes the fuelPrice, it changes for all cars.
+- Static Methods: Can be called without creating an object (e.g., Math.sqrt()). Restriction: They can only access other static members directly and have no this reference.
+
+Explained Solution: The Car Exercise (Slide 75)
+class Car {
+    private double consumption; // liters/km
+    private double fuelLevel;
+    private double tankSize;
+    // Static variable: shared by all Car objects
+    public static double fuelPrice = 480.0;
+
+    public Car(double consumption, double fuelLevel, double tankSize) {
+        this.consumption = consumption;
+        this.fuelLevel = fuelLevel;
+        this.tankSize = tankSize;
+    }
+
+    // Returns cost or -1 if fuel is insufficient
+    public double calculateTravelCost(double km) {
+        double neededFuel = km * consumption;
+        if (neededFuel > fuelLevel) {
+            return -1;
+        }
+        return km * consumption * fuelPrice;
+    }
+
+    // Refueling logic with "too much" check
+    public void refuel(double amount) {
+        if (fuelLevel + amount > tankSize) {
+            System.out.println("Warning: That's too much fuel!");
+            fuelLevel = tankSize; // Fill to max
+        } else {
+            fuelLevel += amount;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "Car [Fuel: " + fuelLevel + "L, Consumption: " + consumption + "];";
+    }
+}
+Explanation: We used private for attributes to ensure they are only changed via refuel. fuelPrice is static because the gas station doesn't care which car you drive; the price is the same for everyone.
+
+Debugging Challenge: "The Ghost Change"
+Look at this code. What will the final output be, and why?
+class Wallet {
+    int money = 100;
+}
+public class Main {
+    public static void main(String[] args) {
+        int val = 50;
+        Wallet myWallet = new Wallet();
+        modify(val, myWallet);
+        System.out.println("Value: " + val);
+        System.out.println("Wallet: " + myWallet.money);
+    }
+    public static void modify(int v, Wallet w) {
+        v = v + 100;
+        w.money = w.money + 100;
+    }
+}
+
+Practice Tasks
+1. The "Global Counter": Create a Student class. Add a static variable studentCount. Every time a new Student object is created (in the constructor), increment this count. Add a static method to print the total number of students created.
+2. The Safe Coffee Machine: Implement the CoffeeMachine from Page 76. Ensure the price cannot be set to a negative value by using a setter method with an if statement.
+3. Challenge of the Week: Create a Submarine fleet. Write a static method emergencySurface(Submarine[] fleet) that sets the depth of every submarine in the array to 0 using a loop.
+
+==============================
+WEEK 7 (Note: Week 6 is missing from provided materials)
+==============================
+
+Week 7: Nested Classes
+
+A nested class is simply a class defined within another class. They are divided into two main categories: Static Nested Classes and Non-static Nested Classes (commonly called Inner Classes).
+
+1. Static Nested Classes
+A static nested class is associated with its outer class, but not with a specific instance of that class. Think of it as a top-level class that has been tucked inside another class for better organization.
+Access: It can only access static members of the outer class directly. It cannot see "normal" instance variables.
+Usage: Used when the nested class doesn't need to interact with the outer class's object data.
+
+class Outer {
+    static int staticValue = 10;
+    static class StaticNested {
+        void display() {
+            // Can access static members
+            System.out.println("Static value: " + staticValue);
+        }
+    }
+}
+
+2. Inner Classes (Non-static)
+An inner class is tied to a specific instance of the outer class. You cannot create an inner class object without first having an outer class object.
+Access: It has access to everything in the outer class—even private variables!
+Analogy: If the Outer class is a Human, the Inner class could be the Heart. The heart cannot exist without the body and has direct access to the body's internal state.
+
+class Computer {
+    private String model = "Pro-X";
+    class Processor {
+        void showModel() {
+            // Direct access to private member of Outer class
+            System.out.println("Processing for: " + model);
+        }
+    }
+}
+// To instantiate:
+// Computer myComp = new Computer();
+// Computer.Processor myProc = myComp.new Processor();
+
+3. Local and Anonymous Classes
+Local Classes: Defined inside a method block. They are only visible within that method.
+Anonymous Classes: These have no name. They are used to instantiate a class while overriding its methods on the fly, often used with Interfaces (which we saw in Week 5/6).
+
+Why use Nested Classes?
+1. Logical Grouping: If a class is only useful to one other class, keep them together.
+2. Increased Encapsulation: If Class B needs access to Class A's private members, making B an inner class of A allows this without making A's members public.
+3. Readability: Small helper classes are easier to find if they are nested.
+
+Code Clinic: Common "Gotchas"
+1. The Shadowing Problem: If your inner class has a variable with the same name as the outer class, use OuterClassName.this.variableName to refer to the outer one.
+2. Memory Leaks: Be careful! An Inner Class (non-static) keeps a hidden reference to its Outer Class instance. If the Inner object lives a long time, the Outer object cannot be garbage collected.
+
+Task 1: The Configuration Handler
+Create a class WebClient. Inside it, create a Static Nested Class called Config.
+The Config class should have static variables for timeout and url. The WebClient should have a method connect() that prints the configuration details.
+
+Task 2: The Car and the Engine
+Implement a Car class with a private fuelType variable.
+Create an Inner Class (non-static) called Engine. The Engine should have a method start() that checks the fuelType of the Car and prints "Starting with [fuelType]...".
+
+Task 3: The Greeting Method
+Create an interface Message. Inside a Main class, write a method that uses an Anonymous Class to implement Message and print "Hello from the inner world!".
+
+Challenge of the Week: The Secure Library
+Create a Library class that contains an array of book titles.
+1. Create an inner class BookIterator.
+2. BookIterator should have methods hasNext() and nextTitle() to loop through the library's books.
+3. The Twist: The library's book array must be private, and the BookIterator should be the only way for an external class to see the titles one by one.
+
+Quick check: If you have a Static Nested Class, can you use the keyword this to refer to the Outer class's instance variables? Why or why not?
+
+==============================
+WEEK 8
+==============================
+
+Week 8: Abstraction and Generics
+
+In C, you often had to use void* pointers to handle different data types, which was dangerous. Java's Generics and Abstraction provide a much safer and cleaner way to achieve the same goals.
+
+1. Abstract Classes (The "Incomplete" Blueprint)
+In object-oriented design, an abstract class serves as a generalized blueprint for a family of related classes. It is declared using the abstract keyword and fundamentally cannot be instantiated—meaning you cannot create a direct object of an abstract class using the new keyword. Its primary purpose is to be subclassed. Abstract classes act as a foundational template that encapsulates common state (instance variables) and shared behavior (concrete methods) while enforcing a specific structure on its descendants through abstract methods.
+
+The core value of an abstract class lies in its ability to model an "Is-A" relationship tightly. When you design a system where multiple classes share a core identity but differ in specific implementations, an abstract class is the ideal choice. For example, in a graphical application, you might have an abstract class called Shape. All shapes share certain properties, such as x and y coordinates or a color, and they might share concrete behaviors, like moveTo(x, y). However, calculating the area of a shape is highly specific to its geometry. By declaring an abstract double calculateArea(); method within the Shape class, you enforce a strict rule: any concrete child class (like Circle or Rectangle) must provide its own specific implementation for this method.
+
+This mechanism provides a powerful balance between code reuse and enforced customization. It allows developers to write generalized code that operates on the abstract superclass type, utilizing polymorphism. You can iterate through an array of Shape objects and call calculateArea() on each, trusting that the Java Virtual Machine will execute the correct overridden method for the specific underlying object. Abstract classes are most effective when you want to provide a partial implementation and share a significant amount of code among closely related classes.
+
+Sometimes, you want to define a class that represents a general concept but is too vague to be an actual object. For example, an Animal exists as a concept, but you never see "just an animal" in the street—it's always a Dog, a Cat, or a Bird.
+abstract keyword: Prevents the class from being instantiated (new Animal() will cause a compiler error).
+Abstract Methods: Methods without a body. They force the subclasses to provide the implementation.
+
+abstract class Shape {
+    String color;
+    Shape(String color) { this.color = color; }
+
+    // No body here! Subclasses MUST implement this.
+    abstract double calculateArea();
+
+    void getColor() {
+        System.out.println("Color: " + color);
+    }
+}
+
+2. Interfaces (The "Contract")
+While abstract classes define a core identity, interfaces define capabilities and contracts. An interface in Java is a completely abstract type that specifies a set of methods that a class must implement, without providing the implementation details for those methods (traditionally, though modern Java allows default methods). Think of an interface as a strict contract: it dictates what an object can do, but explicitly leaves out how the object does it. Classes that sign this contract use the implements keyword.
+
+The theoretical power of interfaces stems from their ability to decouple the definition of a service from its implementation. This models a "Can-Do" relationship or a specific role. Because Java intentionally does not support multiple inheritance of state (a class cannot extend more than one superclass to avoid the "Diamond Problem"), interfaces provide a safe mechanism for multiple inheritance of type. A single class can implement multiple interfaces, allowing it to fulfill various roles simultaneously. For instance, a Smartphone class might extend a Device abstract class, but it can also implement Camera, GPSNavigator, and MusicPlayer interfaces.
+
+Interfaces are invaluable for standardizing behavior across entirely unrelated class hierarchies. Consider the Comparable interface in Java. A Student class and a Car class have no logical shared parent class other than Object. However, if both need to be sorted in an array, they can both implement Comparable. The sorting algorithm does not need to know anything about students or cars; it only needs to know that the objects are guaranteed to have a compareTo() method. By programming to interfaces rather than concrete implementations, software systems become highly modular, easily testable, and incredibly flexible to future changes.
+
+While an abstract class defines what an object is, an interface defines what an object can do. It is a contract. If a class implements an interface, it promises to provide the behavior defined there.
+Multiple Inheritance: In Java, a class can only extend one class, but it can implement many interfaces.
+Best Practice: Use interfaces for capabilities (e.g., Flyable, Runnable, Serializable).
+
+interface Swimmable {
+    void swim(); // Implicitly public and abstract
+}
+
+class Duck extends Animal implements Swimmable, Flyable {
+    public void swim() { System.out.println("Duck is swimming"); }
+    public void fly() { System.out.println("Duck is flying"); }
+}
+
+3. Generic Programming (Type Safety)
+Generics represent a shift in how developers handle collections and algorithms by introducing the concept of type parameters. Before generics were introduced to Java, collections (like an ArrayList) stored raw Object references. This meant you could put a String, an Integer, and a Car into the exact same list. While this seemed flexible, it created a severe theoretical and practical problem: retrieving items from the list required manual type casting, and if you accidentally cast an object to the wrong type, the program would crash at runtime with a ClassCastException.
+
+Generics solve this by allowing types (classes and interfaces) to act as parameters when defining classes, interfaces, and methods. By using angle brackets (e.g., <T>, <E>), you define a placeholder for a specific type that will be provided later. For example, when you declare an ArrayList<String>, you are instructing the compiler to strictly enforce that this specific list can only hold String objects. The primary advantage here is shifting the burden of type-checking from runtime to compile-time. The compiler acts as a strict gatekeeper; if you attempt to add an Integer to a List<String>, the code simply will not compile.
+
+Beyond collections, generics enable the creation of highly reusable, generalized algorithms. You can write a single sorting method or a specific data structure (like a Binary Tree or a Cache) that works safely and seamlessly with any object type. Generics eliminate the need for redundant code (writing a StringBuilder, an IntList, etc.) and completely remove the need for dangerous manual casting. They are the cornerstone of modern, robust Java programming, ensuring that the code is both highly abstract and cryptographically type-safe.
+
+Generics allow you to write a class or method that can work with any data type, while still letting the compiler check for errors.
+- <T>: This is a type parameter. You can think of it as a placeholder that gets replaced with a real type (like Integer or String) when you create the object.
+
+// A generic box that can hold ANY object type T
+class Box<T> {
+    private T content;
+    public void add(T item) { this.content = item; }
+    public T get() { return content; }
+}
+// Usage:
+Box<String> nameBox = new Box<>();
+nameBox.add("Java"); // Safe!
+// nameBox.add(123); // Compiler error! In C, this would have been a bug.
+
+Common Errors:
+1. Attempting to instantiate an Abstract Class
+   Error: Shape s = new Shape();
+   Why? Abstract classes are incomplete. You can only instantiate their non-abstract children (e.g., new Circle()).
+2. Forgetting public in Interfaces
+   Error: When implementing an interface method, you must explicitly write public.
+   Why? Interface methods are public by default, and you cannot reduce the visibility of a method when overriding it.
+
+Practice Tasks
+Task 1: The Vehicle Hierarchy
+1. Create an abstract class Vehicle with an abstract method void move().
+2. Create two subclasses: Car and Bicycle.
+3. Implement move() for both (e.g., "The car drives on four wheels").
+4. In your Main, create an array of Vehicle containing both a car and a bike, and call move() on both using a loop.
+
+Task 2: The Sound System
+1. Create an interface SoundMaker with a method void makeSound().
+2. Create a class Radio and a class Dog. Both should implement SoundMaker.
+3. Write a method testSound(SoundMaker sm) that calls the makeSound() method. Observe how it works for both totally different objects.
+
+Task 3: The Generic Pair
+1. Create a generic class Pair<K, V> that holds two objects of different types.
+2. Add a constructor and getter methods.
+3. In Main, create a Pair<Integer, String> to store a student's ID and Name.
+
+Challenge of the Week: The Generic Repository
+1. Create a generic class Repository<T> that uses an ArrayList to store items.
+2. Add methods void add(T item) and T get(int index).
+3. The Twist: Add a method void printAll() that only works if the items in the repository have a toString() method (Hint: everything in Java does, but try to use a "Bounded Type Parameter" like <T extends Number> if you want to limit it to numbers only).
+
+Checkpoint Question: If you have a class SmartPhone, and you want it to behave like a Camera, a Phone, and a WebBrowser, should you use Inheritance (extends) or Interfaces (implements)? Why?
+
+==============================
+WEEK 9
+==============================
+
+Week 9: Java Collections
+
+The Java Collections Framework.
+Up until now, we have used standard arrays (e.g., int[] or Student[]). While efficient, arrays have a significant limitation: their size is fixed upon creation.
+In C, if you wanted to store a dynamic list of students, you had to manage memory manually using malloc, free, and pointers. In Java, the Collections Framework provides a set of pre-built classes and interfaces that handle memory and data structures for you.
+
+1. The Core Idea: Interfaces vs. Implementations
+The JCF is built on a hierarchy of Interfaces. An interface defines what a collection can do, while the Class (implementation) defines how it does it.
+Here are the four most important interfaces you need to know:
+- Collection: The root of the hierarchy. It defines basic operations like adding and removing items.
+- List: An ordered collection (like a sequence). It allows duplicate elements. (Example: ArrayList, LinkedList).
+- Set: A collection that cannot contain duplicate elements. It models the mathematical set. (Example: HashSet).
+- Map: (Technically not a sub-type of Collection but part of the framework). It stores Key-Value pairs (like a dictionary). Every key must be unique. (Example: HashMap).
+
+2. Generics: Ensuring Type Safety
+In older Java versions, collections could hold any Object, which led to many bugs. Now, we use Generics (the <T> syntax) to tell the compiler exactly what type of data we are storing.
+// This list can ONLY hold Strings.
+List<String> names = new ArrayList<>();
+
+3. Common Methods (The "Shared Language")
+Because most collections inherit from the Collection interface, they share the same method names. This makes the framework very easy to learn.
+Method          | Description
+add(E e)        | Adds an element to the collection.
+remove(Object o)| Removes a specific element.
+size()          | Returns the number of elements (similar to .length in C arrays).
+contains(Object o)| Returns true if the element exists in the collection.
+isEmpty()       | Returns true if the collection has zero elements.
+clear()         | Removes all elements from the collection.
+
+4. Practical Example: "Program to the Interface"
+A "Best Practice" in Java is to use the Interface as the reference type. This makes your code flexible.
+import java.util.*;
+public class CollectionOverview {
+    public static void main(String[] args) {
+        // We use 'List' (Interface) on the left and 'ArrayList' (Implementation) on the right.
+        List<Integer> grades = new ArrayList<>();
+        grades.add(5);
+        grades.add(4);
+        grades.add(5); // Duplicates are okay in a List!
+        System.out.println("Number of grades: " + grades.size());
+        // Easy iteration (for-each loop)
+        for (Integer g : grades) {
+            System.out.println("Grade: " + g);
+        }
+    }
+}
+
+The Power of Collections and Generics
+A Collection is an object that acts as a container, grouping multiple elements into a single unit. The Collections Framework provides ready-to-use data structures (like lists, sets, and queues) and algorithms (like sorting and searching).
+We use Generics (the angle brackets < >) to enforce type safety. This tells the compiler exactly what type of objects the collection is allowed to hold, preventing runtime errors.
+
+Lists and the ArrayList
+A List is an ordered collection (sometimes called a sequence). It allows duplicate elements and gives you precise control over where an element is inserted using an index.
+
+ArrayList Methods (Instance Methods)
+These methods are built into the "container" itself. You call them directly on your list object using the dot operator. They are used for basic data manipulation.
+Method          | Description
+get(int index)  | Reads the element at the specified position.
+set(int index, E element) | Replaces the element at the specified position.
+add(E e)        | Appends the element to the end of the list.
+remove(Object o)| Removes the first occurrence of the specified element.
+size()          | Returns the number of elements.
+
+Collections Utility Class (Static Methods)
+These methods belong to the java.util.Collections class. They are static utility functions that operate on a list (or other collection) passed as an argument.
+Method          | Description
+Collections.sort(list) | Sorts the list into ascending order.
+Collections.reverse(list) | Reverses the order of elements.
+Collections.shuffle(list) | Randomly permutes the list.
+Collections.max(list) | Returns the maximum element.
+
+// Clean Code Tip: Program to an interface (List) but instantiate the concrete class (ArrayList).
+List<String> fruits = new ArrayList<>();
+fruits.add("Apple");
+fruits.add("Banana");
+fruits.add("Cherry");
+// Using INSTANCE methods (on the object 'fruits')
+String secondFruit = fruits.get(1); // Banana
+fruits.set(0, "Apricot"); // Replace Apple with Apricot
+// Using STATIC methods (from the 'Collections' toolbox)
+Collections.sort(fruits);
+System.out.println("Sorted fruits: " + fruits);
+
+Error-Based Learning: The Static Mistake
+A common mistake for beginners is trying to call a static utility method as if it were an instance method:
+// WRONG CODE
+fruits.sort(); // In older Java versions, this didn't exist (though it was added in Java 8+)
+fruits.shuffle(); // This will NOT compile. 'shuffle' is not in the ArrayList class.
+// CORRECT CODE
+Collections.shuffle(fruits);
+
+Think of ArrayList as a dynamic array that automatically grows as you add elements.
+import java.util.ArrayList;
+import java.util.List;
+
+public class CollectionExample {
+    public static void main(String[] args) {
+        // Clean Code Tip: Use the Interface (List) as the reference type,
+        // and the concrete implementation (ArrayList) for the object.
+        List<String> programmingLanguages = new ArrayList<>();
+
+        // 1. Adding elements
+        programmingLanguages.add("C");
+        programmingLanguages.add("Java");
+        programmingLanguages.add("Python");
+
+        // 2. Accessing elements (0-indexed, just like arrays)
+        System.out.println("First language: " + programmingLanguages.get(0));
+
+        // 3. Getting the size (Use .size() instead of .length)
+        System.out.println("Total languages: " + programmingLanguages.size());
+
+        // 4. Removing an element
+        programmingLanguages.remove("C");
+
+        // 5. Iterating with a for-each loop
+        for (String lang : programmingLanguages) {
+            System.out.println(lang);
+        }
+    }
+}
+
+Key takeaways from the code:
+- We must import java.util.List; and import java.util.ArrayList;
+- We use methods like .add(), .get(), and .size() instead of bracket notation [] and .length.
+- Collections can only hold Objects, not primitive types. If you want a list of integers, you must use the Wrapper class Integer instead of int (e.g., List<Integer>).
+
+Week 9 Practice Exercises:
+1. The Dynamic Roster: Create a List<String> to hold student names. Add 5 names to the list. Remove the 3rd name. Print the final size of the list and use a loop to print all remaining names.
+2. Number Filter: Create a List<Integer>. Write a loop that adds the numbers 1 through 20 to the list. Then, write a second loop that removes all even numbers from the list. Print the final list.
+3. The Library: Create a Book class with title and author attributes, a constructor, and a toString() method. In your main program, create a List<Book>. Add 3 different books. Write a method findBookByTitle(List<Book> library, String title) that searches the list and returns the book if found, or null if not.
+
+Code Clinic: The Iteration Trap
+A student attempted Task 2 (Number Filter) with the following code. It compiles perfectly, but when they run it, it crashes with a ConcurrentModificationException.
+List<Integer> numbers = new ArrayList<>();
+for (int i = 1; i <= 5; i++) {
+    numbers.add(i); // List contains: 1, 2, 3, 4, 5
+}
+// Attempting to remove even numbers
+for (Integer num : numbers) {
+    if (num % 2 == 0) {
+        numbers.remove(num); // CRASH!
+    }
+}
+Why did this fail? A "for-each" loop uses an internal Iterator behind the scenes. If you structurally modify a collection (add or remove elements) while iterating over it using a standard for-each loop, the iterator detects that the collection has been tampered with and throws a ConcurrentModificationException to prevent unpredictable behavior.
+
+Challenge of the Week
+The Smart Playlist: Create a Song class (title, artist, durationInSeconds). Create a Playlist class that contains a List<Song>.
+Implement the following methods in Playlist:
+- addSong(Song s)
+- removeSong(String title)
+- getTotalDuration(): Returns the total time formatted as MM:SS.
+- swapSongs(int index1, int index2): Swaps the position of two songs in the playlist.
+
+Looking at the Code Clinic error, how might you safely rewrite that removal loop without triggering the ConcurrentModificationException?
+
+==============================
+WEEK 10
+==============================
+
+Week 10: Java Collections #2
+
+This week, we dive deeper into the Java Collections Framework to handle data in more specialized ways.
+We are moving from "how to store things in a line" to "how to store things for fast searching, uniqueness, and key-based access."
+
+1. Beyond the List: The Set Interface
+A Set is a collection that contains no duplicate elements. Think of it like a bag of unique coins; you can't have two identical ones.
+
+HashSet vs. TreeSet
+Feature      | HashSet                       | TreeSet
+Ordering     | No guaranteed order.          | Elements are sorted (natural order).
+Speed        | Extremely fast for add/search.| Slower (Logarithmic time).
+Nulls        | Allows one null element.      | Does not allow null (due to sorting).
+
+Practical Example:
+Imagine you are reading a long text and want to find every unique word used. Using an ArrayList would require you to check .contains() every single time (which is slow). A HashSet does this automatically and nearly instantly.
+
+2. The Map Interface: Key-Value Pairs
+In C, if you wanted to associate a student's name with their grade, you might have used two arrays or a complex struct. In Java, we use a Map.
+Map stores data in pairs: a Key (the unique identifier) and a Value (the data associated with it).
+HashMap: The most common implementation. It uses a hash table.
+TreeMap: Keeps the keys in a sorted order.
+
+Example Code:
+import java.util.HashMap;
+HashMap<String, Integer> studentGrades = new HashMap<>();
+studentGrades.put("Alice", 95);
+studentGrades.put("Bob", 82);
+// Accessing is direct!
+System.out.println("Alice's grade: " + studentGrades.get("Alice"));
+
+3. Queues and Deques
+Sometimes the order of entry is everything.
+Queue: Follows FIFO (First-In-First-Out). Useful for print jobs or processing tasks in order.
+PriorityQueue: Elements are processed based on their "priority" rather than just arrival time.
+
+4. The Collections Utility Class
+Just as we used Arrays.sort() for basic arrays, Java provides a java.util.Collections class with static methods to help us:
+Collections.sort(list): Sorts a list.
+Collections.reverse(list): Flips the order.
+Collections.shuffle(list): Randomizes the order.
+
+Set Interface: Uniqueness
+Scenario: You are building a system to track unique visitor IP addresses for a website. Even if the same person visits ten times, you only want to store their address once.
+Theory: A HashSet is best for speed, while a TreeSet keeps elements in a "natural" sorted order.
+Solution Logic:
+import java.util.HashSet;
+import java.util.Set;
+
+Set<String> uniqueIPs = new HashSet<>();
+uniqueIPs.add("192.168.1.1");
+uniqueIPs.add("192.168.1.2");
+uniqueIPs.add("192.168.1.1"); // This will be ignored automatically
+System.out.println("Total unique visitors: " + uniqueIPs.size());
+
+Queue Interface: Processing Order
+Scenario: A printer queue. Documents are printed in the exact order they were sent to the printer.
+Theory: The LinkedList class in Java implements the Queue interface, allowing us to add to the back and remove from the front.
+Solution Logic:
+import java.util.LinkedList;
+import java.util.Queue;
+
+Queue<String> printerLine = new LinkedList<>();
+printerLine.add("Thesis_Final.pdf");
+printerLine.add("Cat_Photo.jpg");
+// "Poll" removes the first item
+String nextJob = printerLine.poll();
+System.out.println("Now printing: " + nextJob);
+
+Map Interface: Key-Value Pairs
+Scenario: A classroom gradebook where every student's name (Key) is linked to their grade (Value).
+Theory: Keys must be unique, but values can be duplicated.
+Solution Logic:
+import java.util.HashMap;
+import java.util.Map;
+
+Map<String, Double> gradeBook = new HashMap<>();
+gradeBook.put("Alice", 4.5);
+gradeBook.put("Bob", 3.7);
+System.out.println("Alice's grade: " + gradeBook.get("Alice"));
+
+Comparison at a Glance
+Feature     | Set           | Queue         | Map
+Duplicates  | Not allowed   | Allowed       | Keys must be unique
+Ordering    | Implementation dependent | FIFO (usually) | Key-based lookup
+Main Use    | Uniqueness    | Task scheduling | Lookups / Dictionaries
+
+Traversing Collections
+1. Traversing a Set: Use enhanced for-each loop (no indices).
+Set<String> uniqueColors = new HashSet<>();
+uniqueColors.add("Red");
+uniqueColors.add("Green");
+uniqueColors.add("Blue");
+for (String color : uniqueColors) {
+    System.out.println("Color: " + color);
+}
+
+2. Traversing a Queue: Often processed destructively with while loop + poll().
+Queue<String> printerLine = new LinkedList<>();
+printerLine.offer("Document1.pdf");
+printerLine.offer("Photo.png");
+while (!printerLine.isEmpty()) {
+    String currentJob = printerLine.poll();
+    System.out.println("Now printing: " + currentJob);
+}
+
+3. Traversing a Map: Use entrySet() to get key-value pairs.
+Map<String, Integer> fruitStock = new HashMap<>();
+fruitStock.put("Apple", 50);
+fruitStock.put("Banana", 20);
+for (Map.Entry<String, Integer> entry : fruitStock.entrySet()) {
+    System.out.println("Fruit: " + entry.getKey() + ", Quantity: " + entry.getValue());
+}
+
+Summary Table
+Collection | Traversal Logic       | Common Method
+Set        | Visit each unique item | for-each loop
+Queue      | Process items in order | while loop + poll()
+Map        | Visit Key-Value pairs  | for-each on entrySet()
+
+Week 10 Practice Tasks
+Task 1: The Unique Guest List
+Create a program that asks the user to enter names of guests for a party. The user can keep entering names until they type "exit". Use a collection that ensures even if a name is entered twice, it only appears once in the final list. Finally, print the list in alphabetical order.
+
+Task 2: Student Database
+Create a Map where the Key is a Student ID (String) and the Value is a Student object (from our previous weeks' exercises).
+1. Add 3 students to the map.
+2. Ask the user for an ID.
+3. If the ID exists, display that student's details using their toString() method. If not, show an error message.
+
+Task 3: Word Frequency Counter
+Write a method that takes a String (a sentence) and counts how many times each word appears.
+Hint: Split the string into an array of words first, then use a Map<String, Integer> to keep track of the counts.
+
+Challenge of the Week: The Emergency Room
+Design a system for a hospital Emergency Room.
+1. Create a Patient class with a name and a priority (1-10, where 1 is "stubbed toe" and 10 is "heart attack").
+2. Use a PriorityQueue to store patients.
+3. The queue should automatically place the highest priority patients at the front so that when poll() is called, the most urgent patient is treated first.
+(Note: You will likely need to make your Patient class implement the Comparable interface to define how priority is compared!)
+
+==============================
+WEEK 11
+==============================
+
+Week 11: Exception Handling
+
+This week, we are diving into a crucial topic for building professional and "crash-proof" applications: Exception Handling.
+In your previous experience with C, a program might simply crash or produce "garbage" values if something went wrong (like dividing by zero or accessing a bad pointer). Java, however, provides a structured way to catch these errors and react to them gracefully.
+
+1. What is an Exception?
+An exception is an error that occurs at run time. Think of it as an "exceptional event" that disrupts the normal flow of the program's instructions. In Java, an Exception is an error that occurs at runtime, disrupting the normal flow of instructions. Unlike C, where errors often lead to immediate crashes or undefined behavior, Java provides a structured mechanism to "catch" these errors and respond to them.
+
+The Throwable Hierarchy
+Every error in Java is an object. These objects are part of a specific hierarchy:
+- Throwable: The root class for all errors.
+  - Error: Serious problems related to the Java Virtual Machine (JVM) itself (e.g., OutOfMemoryError). Your program usually cannot recover from these.
+  - Exception: Errors caused by program activity. This is what we handle.
+    - RuntimeException: "Unchecked" exceptions like dividing by zero or null pointer access. These usually indicate logic bugs.
+
+2. The Five Keywords of Exception Handling
+To handle these "explosions" in our code, we use a specific "survival kit" of five keywords:
+Keyword | Purpose
+try     | Wraps the code that might cause an error.
+catch   | The "emergency room" where the error is handled.
+finally | Code that runs no matter what (even if there was an error).
+throw   | Used to manually "fire" an exception.
+throws  | Warns that a method might throw a specific exception.
+
+In Java, this structure is the cornerstone of robust programming. Think of it like a circus performance: the try block is the act itself, the catch block is the safety net, and the finally block is the cleaning crew that tidies up the arena after the show, no matter what happened.
+
+1. The Control Flow (How the JVM "jumps")
+The most important thing to understand is how execution moves between these blocks.
+1. try block: This is where you put "risky" code that might throw an exception. Java executes it line-by-line. If an exception occurs on a specific line, Java immediately stops executing the rest of the try block and looks for a matching catch.
+2. catch block: This block only runs if an exception occurs in the try block and the type of the exception matches the one declared in the catch parameter. This is where you handle the error (e.g., logging a message or showing a warning to the user).
+3. finally block: This block is guaranteed to execute, regardless of whether an exception was thrown or caught. Even if you have a return statement inside the try or catch blocks, the finally block will still run before the method actually returns!
+
+2. Why is finally indispensable?
+You might ask: "Why not just write the code after the catch block?"
+The answer is Resource Management. If you open a file, a database connection, or a network socket in the try block, you must close it to prevent memory leaks or file locking. If an error happens halfway through the try block, the code after the try-catch might never be reached if the exception isn't handled perfectly. The finally block ensures the "cleanup" always happens.
+
+Practical Example: Division and Cleanup
+public void divideNumbers(int a, int b) {
+    System.out.println("--- Operation Start ---");
+    try {
+        System.out.println("Executing division...");
+        int result = a / b; // This will throw ArithmeticException if b = 0
+        System.out.println("Result: " + result); // This is skipped if an error occurs
+    } catch (ArithmeticException e) {
+        System.out.println("Error: Division by zero is not allowed!");
+    } finally {
+        // This always runs, ideal for cleanup
+        System.out.println("Cleaning up resources (e.g., closing calculator).");
+    }
+    System.out.println("--- Program continues outside the block ---");
+}
+
+What happens if b = 0?
+1. It prints: --- Operation Start ---
+2. It prints: Executing division...
+3. The error occurs. The line System.out.println("Result: " + result); is skipped.
+4. Execution jumps to the catch block.
+5. It prints: Error: Division by zero is not allowed!
+6. The finally block runs: Cleaning up resources...
+7. It prints: --- Program continues outside the block ---
+
+Checkpoint Quiz from your Mentor
+Look at the following code snippet:
+try {
+    System.out.print("A");
+    int x = 10 / 0;
+    System.out.print("B");
+} catch (ArithmeticException e) {
+    System.out.print("C");
+} finally {
+    System.out.print("D");
+}
+Based on what we just discussed, exactly which letters (and in what order) will be printed to the console?
+
+3. Creating Your Own Exceptions
+Sometimes, Java's built-in exceptions aren't specific enough. For example, in a Submarine class, you might want a PressureException if it dives too deep. To create one, you simply extend the Exception class.
+class NegativeValueException extends Exception {
+    // Custom exceptions don't need much- their type is what matters!
+}
+
+4. Exception messages
+In Java, an exception is an object that represents an error. Because it is an object, it can hold data, such as a descriptive message or a "trace" of where the error happened.
+
+Accessing Error Messages
+When you catch an exception, the catch block gives you a reference to the exception object (often named e or exc). You can use this object to extract details about the failure:
+getMessage(): This is the most common method. It returns a String containing a description of the exception.
+toString(): This returns a short description of the exception, including the name of the exception class and the message.
+printStackTrace(): This prints the message plus the sequence of method calls that led to the error, which is vital for debugging.
+
+Here is a practical example of using getMessage() from your materials:
+try {
+    int[] numbers = {1,2,3};
+    System.out.println(numbers[5]); // This causes an ArrayIndexOutOfBoundsException
+} catch (ArrayIndexOutOfBoundsException e) {
+    // We access the message passed by the JVM
+    System.err.println("Details: " + e.getMessage());
+}
+
+Custom Messages in Your Own Exceptions
+When you create a custom exception by extending the Exception class, you can allow your program to pass specific, helpful messages back to the user. This is usually done by creating a constructor that accepts a String and passes it to the "parent" (superclass) constructor using super().
+Method          | Purpose
+getMessage()    | Returns the detail message string of this throwable.
+
+Code Clinic: Spot the Behavior
+Look at the following code snippet carefully. We have an array with only 2 slots, but we are trying to access the 5th slot.
+public static void checkArray() {
+    int[] numbers = {10, 20};
+    try {
+        System.out.println("Accessing element...");
+        System.out.println(numbers[5]);
+        System.out.println("Success!");
+    } catch (ArrayIndexOutOfBoundsException e) {
+        System.out.println("Catch: Index is out of range.");
+    } finally {
+        System.out.println("Finally: Cleaning up.");
+    }
+    System.out.println("End of method.");
+}
+Based on the code above, which of the following lines will NEVER be printed to the console?
+1. "Success!"
+2. "Finally: Cleaning up."
+3. "End of method."
+
+throw Keyword: The "Hand Grenade"
+The throw keyword is used inside a method body to manually trigger an exception. Think of it as a way to stop the program and say: "I cannot continue because the data I received is invalid!"
+Key Characteristics:
+- It is followed by an instance of an exception class (created with the new keyword).
+- As soon as a throw statement is executed, the method stops immediately.
+- It is most commonly used for input validation.
+Practical Example:
+public void setAge(int age) {
+    if (age < 0 || age > 150) {
+        // We manually "fire" the exception here
+        throw new IllegalArgumentException("Invalid age provided: " + age);
+    }
+    this.age = age;
+}
+Why use this? Without the throw, a user could have an age of -50, which would break your business logic later (e.g., when calculating retirement).
+
+throws Keyword: The "Warning Sign"
+The throws keyword is part of the method signature (the header). It acts as a public announcement to any developer using your method: "Warning! If you call this method, you might encounter these types of errors. Prepare your try-catch blocks!"
+Why do we need it? (Checked Exceptions)
+- Unchecked Exceptions (e.g., NullPointerException, ArithmeticException): You don't have to declare these. They usually represent programming bugs.
+- Checked Exceptions (e.g., IOException, SQLException): The compiler forces you to handle these. If a method might throw a checked exception, it must declare it using throws.
+Practical Example:
+import java.io.*;
+// The 'throws' tells the caller that this method is 'dangerous'
+public void readFile(String path) throws IOException {
+    if (path == null) {
+        throw new IOException("Path cannot be null!");
+    }
+    // File reading logic here...
+}
+
+The "Catch or Specify" Requirement
+When you call a method that has a throws clause, you have two choices:
+1. Catch it: Wrap the call in a try-catch block.
+2. Specify it: Add the same throws clause to your own method, essentially passing the responsibility "up the ladder" to whoever calls you.
+
+Interactive Checkpoint
+Look at this Bank Account code. One keyword is used to warn the caller, and the other is used to trigger the error.
+public void withdraw(double amount) throws Exception { // (A)
+    if (amount > balance) {
+        throw new Exception("Insufficient funds!"); // (B)
+    }
+    balance -= amount;
+}
+Question: If I am the developer calling this withdraw method in my Main class, which line (A or B) is the reason why my IDE starts underlining my code in red, forcing me to use a try-catch?
+
+Week 11: Practice Exercises
+Exercise 1: The Secure Temperature Sensor
+Create a class TemperatureSensor. Write a method setTemperature(double temp) that throws an IllegalArgumentException if the temperature is below -273.15 (Absolute Zero).
+Task: Write a Main class that tries to set a temperature of -300 and catches the error to print a friendly message.
+
+Exercise 2: Multiple Hazards
+Create a method processData(String input, int index) that can throw two types of exceptions:
+1. NullPointerException (if input is null).
+2. ArrayIndexOutOfBoundsException (if the index is invalid for the input string).
+Task: Call this method from main and use multiple catch blocks to handle each error differently.
+
+Exercise 3: The Custom Exception
+Create your own exception class called InvalidPasswordException (it should extend Exception).
+Task: Create a Validator class with a method checkPassword(String pwd). It should throw your custom exception if the password is shorter than 8 characters.
+
+Challenge of the Week: "The Deep Diver"
+Create a simulation of a Submarine.
+1. Create a custom checked exception called HullPressureException.
+2. The Submarine has a depth variable and a maxDepth limit.
+3. Create a dive(int meters) method.
+   a. If the new depth exceeds maxDepth, it must throw a HullPressureException.
+   b. Crucially, this method must not throw throws keyword.
+4. In your Main class, create a Controller method that calls submarine.dive().
+5. The ControlCenter should also not handle the error, but pass it up further.
+6. Finally, in the public static void main, call the ControlCenter and here finally handle the exception with a try-catch that "resurfaces" the sub.
+Goal: Demonstrate how an exception can traverse the layers of methods before being caught!
+
+==============================
+WEEK 12
+==============================
+
+Week 12: I/O Operations, Streams, and File Management
+
+Introduction to Java I/O and the Stream Concept
+In Java, input and output operations are handled through an abstraction called a Stream. A stream is a logical path that either produces information (Input) or consumes information (Output). This abstraction allows Java to treat different physical devices—like the keyboard, a file on a disk, or a network connection—in a uniform manner.
+
+The Two Pillars of Java I/O
+Java defines two primary types of streams based on the type of data they handle:
+1. Byte Streams: These provide a convenient way for handling the input and output of bytes (8-bit data). They are essential for reading or writing binary data, such as images or executable files. All byte streams are derived from the abstract classes InputStream and OutputStream.
+2. Character Streams: These are designed specifically for handling the input and output of characters using Unicode. They are ideal for text files and internationalization.
+
+The File Class and Path Management
+Before we can read or write data, we often need to interact with the file system itself. The File class in the java.io package is an abstract representation of file and directory pathnames. It does not handle the data inside the file, but rather the metadata and the file's existence on the disk.
+
+Understanding Paths
+Paths can be defined in two ways:
+- Absolute Path: Starts from the root directory of the file system (e.g., C:\Users\Documents\data.txt).
+- Relative Path: Starts from the current working directory. The symbol . represents the current directory, while .. represents the parent directory.
+
+Common File Constructors
+- File(String pathname): Creates a new File instance by converting the given path string into an abstract pathname.
+- File(String parent, String child): Creates a new File instance from a parent path string and a child path string.
+- File(File parent, String child): Creates a new File instance from a parent abstract pathname and a child path string.
+Once created, the pathname of a File object cannot be changed.
+
+Working with File Metadata and Directories
+The File class provides several methods to inspect and manipulate files and directories:
+
+Inspecting Files and Folders
+- exists(): Returns true if the file or directory exists.
+- isFile(): Returns true if the object represents a normal file.
+- isDirectory(): Returns true if the object represents a directory.
+- length(): Returns the size of the file in bytes.
+- lastModified(): Returns the time the file was last modified.
+- getAbsolutePath(): Returns the absolute path of the file.
+
+Manipulating the File System
+- createNewFile(): Atomically creates a new, empty file if it doesn't already exist.
+- delete(): Deletes the file or empty directory.
+- mkdir(): Creates the directory named by this abstract pathname.
+- mkdirs(): Creates the directory, including any necessary but nonexistent parent directories.
+- list(): Returns an array of strings or File objects representing the files in a directory.
+
+Here is an example demonstrating the Inspecting methods:
+import java.io.File;
+import java.util.Date;
+
+public class FileInspector {
+    public static void main(String[] args) {
+        // We create a File object representing a path
+        File myFile = new File("test_folder/example.txt");
+
+        // 1. Inspecting the file
+        if (myFile.exists()) {
+            System.out.println("Absolute Path: " + myFile.getAbsolutePath());
+            System.out.println("Is it a normal file? " + myFile.isFile());
+            System.out.println("Is it a directory? " + myFile.isDirectory());
+            System.out.println("Size in bytes: " + myFile.length());
+
+            // lastModified() returns a long, so we convert it to a readable Date
+            long timestamp = myFile.lastModified();
+            System.out.println("Last modified: " + new Date(timestamp));
+        } else {
+            System.out.println("The path does not exist.");
+        }
+    }
+}
+
+Key Concepts
+- Path Representation: The File object doesn't create a file on your disk immediately; it just represents the "pathname" in your code.
+- Safety Checks: Methods like exists() are crucial to prevent errors. If you try to read metadata from a file that isn't there, your program might behave unexpectedly.
+- Bytes: The length() method always returns the size in bytes. To get Kilobytes, you would need to divide the result by 1024.
+
+Byte Streams: The InputStream and OutputStream Hierarchies
+Byte streams are the foundation of all Java I/O. Even character streams are often built on top of byte streams.
+
+The InputStream Class
+This is the abstract superclass for all classes representing an input stream of bytes.
+int read(): Reads the next byte of data from the input stream. It returns an int (0-255). If the end of the stream is reached, it returns -1.
+void close(): Closes the input stream and releases any system resources.
+
+The OutputStream Class
+This is the abstract superclass for all classes representing an output stream of bytes.
+void write(int b): Writes the specified byte to the output stream.
+void flush(): Flushes the output stream, forcing any buffered bytes to be written out.
+void close(): Closes the output stream.
+
+File Byte Streams: FileInputStream and FileOutputStream
+To read from or write to a file using bytes, we use the FileInputStream and FileOutputStream classes.
+
+Reading from a File
+When creating a FileInputStream, a FileNotFoundException is thrown if the file does not exist.
+try (FileInputStream fin = new FileInputStream("input.txt")) {
+    int i;
+    do {
+        i = fin.read();
+        if (i != -1) System.out.print((char) i);
+    } while (i != -1);
+} catch (IOException e) {
+    System.out.println(e);
+}
+
+Writing to a File
+FileOutputStream can overwrite an existing file or append to it if the append parameter is set to true.
+try (FileOutputStream fout = new FileOutputStream("test.txt")) {
+    String s = "This is a sample sentence.";
+    byte[] b = s.getBytes(); // Convert string to bytes
+    fout.write(b);
+} catch (IOException e) {
+    System.out.println(e);
+}
+
+Character Streams: Reader and Writer
+While byte streams handle 8-bit data, Character Streams are designed for 16-bit Unicode characters. This makes them the preferred choice for text processing, especially when dealing with international characters.
+The primary classes in this hierarchy are Reader (for input) and Writer (for output). For file-based character I/O, common classes include FileReader and FileWriter.
+Why use Character Streams?
+Unicode Support: They automatically handle character encoding and decoding.
+Efficiency: They are optimized for text data compared to manually converting bytes to chars.
+
+Data Streams: Storing Typed Data in Binary
+Sometimes you need to store Java primitive types (like int, double, or boolean) in a file without converting them to strings. For this, we use DataInputStream and DataOutputStream. These classes implement the DataInput and DataOutput interfaces, which define methods for writing and reading all of Java's primitive types in their internal binary format.
+
+Common Methods in DataOutputStream
+- writeInt(int v): Writes a 4-byte integer.
+- writeDouble(double v): Writes an 8-byte double.
+- writeBoolean(boolean v): Writes a 1-byte boolean.
+- writeUTF(String s): Writes a string using a modified UTF-8 encoding.
+
+Common Methods in DataInputStream
+- readInt(): Reads a 4-byte integer.
+- readDouble(): Reads an 8-byte double.
+- readUTF(): Reads a string in UTF format.
+
+Binary data is not human-readable but is very efficient for program-to-program communication.
+
+Java Binary Data Example
+In this example, we will save a student's ID, their GPA, and their name to a binary file and then retrieve them.
+import java.io.*;
+
+public class BinaryDataDemo {
+    public static void main(String[] args) {
+        String filepath = "student_data.bin";
+
+        // 1. Writing binary data
+        try (DataOutputStream out = new DataOutputStream(new FileOutputStream(filepath))) {
+            out.writeInt(101);        // Writing a 4-byte integer
+            out.writeDouble(3.85);    // Writing an 8-byte double
+            out.writeUTF("Alice");    // Writing a String in UTF format
+            System.out.println("Data saved to " + filepath);
+        } catch (IOException e) {
+            System.err.println("Write error: " + e.getMessage());
+        }
+
+        // 2. Reading binary data
+        try (DataInputStream in = new DataInputStream(new FileInputStream(filepath))) {
+            // We must read in the exact same order we wrote the data
+            int id = in.readInt();
+            double gpa = in.readDouble();
+            String name = in.readUTF();
+            System.out.println("Retrieved: ID=" + id + ", GPA=" + gpa + ", Name=" + name);
+        } catch (IOException e) {
+            System.err.println("Read error: " + e.getMessage());
+        }
+    }
+}
+
+Key Concepts
+- Stream Chaining: Notice how DataOutputStream is wrapped around FileOutputStream. The FileOutputStream handles the actual file connection, while DataOutputStream provides the specialized methods like writeInt().
+- Efficiency: Unlike text files (which use characters), binary files store the exact bit patterns of the variables. This is faster and takes up less space for numeric data.
+- The Golden Rule: You must read the data in the exact same order you wrote it. If you try to readDouble() when the next piece of data is an int, the program will read the wrong number of bytes and produce garbage data or an error.
+
+Since binary data is not human-readable, what do you think would happen if you tried to open the student_data.bin file using a standard text editor like Notepad?
+
+Standard Streams and Practice Exercises
+
+Standard Streams in the System Class
+Java provides three standard streams through the System class:
+1. System.out: Standard output for normal program info.
+2. System.err: Standard error for diagnostic messages and exceptions.
+3. System.in: Standard input, usually the keyboard.
+
+Example using System.err:
+try {
+    int number = Integer.parseInt("abc"); // This will fail
+} catch (NumberFormatException e) {
+    // In case of an exception, System.err is also the correct choice
+    System.err.println("ERROR: You did not enter a valid number!");
+}
+
+Explanation of the code:
+- System.out.println(...): We use this for the program's normal messages (e.g., instructions for the user).
+- System.err.println(...): We use this when things do not go according to plan (e.g., bad input or an error).
+
+Practice Exercises
+Task 1: File Metadata Explorer
+Create a Java program that checks for the existence of a file based on a given relative path. If the file exists, display the following metadata on the console: the file name, its absolute path, the file size in bytes, and the date of last modification (in a human-readable format). If the file does not exist, the program should create it on the disk.
+
+Task 2: Safe File Copy (Byte Streams)
+Write a file copy application that copies a source file (for example, an image or a text document) to a destination file, proceeding byte by byte. Use the FileInputStream and FileOutputStream classes for the implementation. When writing the code, apply the modern Java "try-with-resources" structure to guarantee the automatic and safe closing of the streams, even if an error occurs.
+
+Task 3: Binary Data Persistence (Train Ticket System)
+Implement a TrainTicket class that stores the following data: ticket type (e.g., student, pensioner, full price), travel distance (real number), and price per kilometer (integer). Create a save method that saves the object's data to a file in binary format using DataOutputStream. Also, create a static load method that reads the data back from the file using DataInputStream and returns a new TrainTicket object with the read values.
