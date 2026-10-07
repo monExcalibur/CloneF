@@ -1,0 +1,652 @@
+# Conceptual Modeling
+
+## Data vs. Information
+
+**Data:** Raw, unorganized facts that need to be processed (e.g., a list of numbers or dates). It represents the "Extensional" aspect of a database.
+**Information:** Data that has been processed, interpreted, and organized to provide meaning (e.g., an average grade or a financial report).
+**The Goal of Modeling:** To create a structure that allows raw data to be transformed into reliable information for decision-making.
+**Metadata:** Data about data; the descriptions of the data structures and constraints that give data its context.
+
+## The ANSI-SPARC Architecture
+
+Proposed in 1975 to standardize database management systems (DBMS).
+Defines a **Three-Level Architecture** to separate user applications from the physical database.
+**Objectives:**
+- Support multiple individual user views.
+- Hide physical storage details from users.
+- Allow the DBA to change storage structures without affecting users.
+- Ensure the "Internal" state is independent of the "External" perception.
+
+## The Three Levels of Abstraction
+
+1. **External Level (User Views):** The level closest to the users. Describes how different groups of users perceive the data.
+2. **Conceptual Level (Community View):** The logical structure of the entire database. It describes what data is stored and the relationships among the data.
+3. **Internal Level (Physical View):** The level closest to physical storage. Describes how data is actually stored on the storage medium.
+
+## Internal Level: The Physical View
+
+- Focuses on **efficiency** and **storage**.
+- Involves low-level data structures: memory allocation, block sizes, record sequencing, indexing (B-trees, hashing), compression, encryption.
+- Goal: optimize hardware utilization and response time.
+
+## Conceptual Level: The Community View
+
+- The **Logical Middle Ground**.
+- Describes the entire information model of the organization.
+- Key elements: entities, attributes, relationships, semantic constraints, security.
+- Hides physical complexity while providing a unified view.
+
+## External Level: User Views
+
+- Tailored to specific user needs (e.g., HR view, Accounting view).
+- A single database has many external schemas.
+- Benefits: security, simplicity, customization.
+
+## Mappings
+
+- **External/Conceptual Mapping:** correspondence between user view and global logical schema.
+- **Conceptual/Internal Mapping:** how logical entities are represented in physical storage.
+
+## Data Independence
+
+- **Logical Data Independence:** change Conceptual Schema without affecting External Schemas.
+- **Physical Data Independence:** change Internal Schema without affecting Conceptual Schema.
+
+## Entity-Relationship (ER) Model
+
+**Origin:** Peter Chen (1976).
+**Purpose:** high-level conceptual data model.
+**Key Components:** Entities (nouns), Attributes (properties), Relationships (verbs).
+
+### Notation Gallery (Chen)
+
+- Strong Entity: rectangle
+- Weak Entity: double rectangle
+- Key attribute: underlined text
+- Multi-valued attribute: double oval
+- Derived attribute: dashed oval
+- Relationship: diamond
+- Identifying relationship: double diamond
+
+### Entities: Type, Instance, Set
+
+- **Entity Type (Intension):** blueprint, schema.
+- **Entity Instance (Entity):** specific object.
+- **Entity Set (Extension):** collection of all instances.
+
+### Attribute Taxonomy
+
+- **Simple vs. Composite:** Address (Street, City, Zip)
+- **Single-valued vs. Multi-valued:** Phone_Numbers (double-line oval)
+- **Derived attributes:** calculated from other attributes (dashed oval)
+- **Identifying (Key) vs. Non-identifying (Descriptors):** underlined for key
+- **Composite Key:** multiple attributes together ensure uniqueness.
+
+### Natural vs. Artificial (Surrogate) Keys
+
+- Natural: real-world meaning (ISBN, VIN), can change.
+- Surrogate: system-generated (auto-increment, UUID), immutable.
+
+### Strong Entities
+
+- Identity independent, primary key from own attributes.
+- Visual: single-lined rectangle.
+
+### Weak Entities
+
+- Identity depends on owner entity.
+- PK_Weak = PK_Owner + Partial Key (Discriminator).
+- Visual: double-lined rectangle, double-lined diamond for identifying relationship.
+- Example: Room (Room_Number) owned by Building.
+
+### The NULL state
+
+Meanings:
+1. Value unknown
+2. Value missing
+3. Not applicable
+Leads to Three-Valued Logic (3VL) in SQL.
+
+## Relationship Theory
+
+**Relationship:** association among entities.
+**Relationship Set:** mathematical relation on n > 2 entity sets.
+**Attributes on Relationships:** data belonging to the association (e.g., Hours_Worked).
+
+### Degree of Relationship
+
+- Unary (recursive): degree 1
+- Binary: degree 2 (most common)
+- Ternary: degree 3
+- N-ary: general
+
+### Recursive Relationships
+
+Same entity set participates in different roles (e.g., Employee manages Employee). Requires role names.
+
+### Associative Entities (Reification)
+
+Turning a relationship into an entity.
+Use when a relationship must participate in another relationship or has its own lifecycle.
+Example: Enrollment (Student enrolls in Course) becomes entity, then Faculty grades Enrollment.
+
+### Ternary vs. Three Binaries
+
+Ternary is irreducible when association is atomic (e.g., Physician prescribes Drug to Patient). Three binaries lose the connection.
+
+### Multiple Relationships Between Entities
+
+Entities can be linked by more than one relationship type simultaneously (e.g., Airline operates flight, owns aircraft, codeshares).
+
+### Non-Transferable Relationships
+
+Association cannot change (e.g., Birth Record and Mother). Handled via ON UPDATE RESTRICT or triggers.
+
+### Overlapping Roles in Unary
+
+Requires cycle constraint: part cannot contain itself.
+
+### Redundant vs. Essential Relationships
+
+A path derived from others may be redundant; but if carries unique meaning, it is essential.
+
+## Structural Constraints
+
+### Cardinality Ratio (Max Cardinality)
+
+- One-to-One (1:1)
+- One-to-Many (1:N)
+- Many-to-Many (M:N)
+
+### Participation Constraint (Min Cardinality)
+
+- **Total (mandatory):** every entity must participate (double line)
+- **Partial (optional):** some may not (single line)
+
+### (Min, Max) Notation
+
+Each participation labeled with (min, max). Example: (0,1), (1,1), (0,N), (1,N). Directly maps to SQL CHECK constraints.
+
+### Connection Traps
+
+**Fan Trap:** ambiguity from two 1:N relationships fanning out from a central entity. Fix: reorder into linear chain.
+**Chasm Trap:** loss of pathways due to optional participation in a chain. Fix: add direct relationship between endpoints.
+
+## Enhanced ER (EER)
+
+### Superclasses and Subclasses
+
+- **IS-A** relationship: subclass inherits all attributes and relationships of superclass.
+- **Specialization (top-down):** defining subclasses.
+- **Generalization (bottom-up):** extracting common superclass.
+
+### Constraints
+
+- **Disjoint (d):** entity can belong to at most one subclass.
+- **Overlapping (o):** entity can belong to multiple subclasses.
+- **Total (double line):** every superclass entity must belong to a subclass.
+- **Partial (single line):** entity may exist only as superclass.
+
+### Specialization Lattice (Multiple Inheritance)
+
+Shared subclass inherits from multiple superclasses (e.g., Teaching Assistant from Employee and Student).
+
+### Union Types (Categories)
+
+Subclass that is subset of the union of different entity types (e.g., Owner can be Person, Bank, or Company). Entity belongs to exactly one.
+
+### Aggregation
+
+Treating a relationship as a higher-level entity so it can participate in another relationship (e.g., WORKS_ON authorized by MANAGER).
+
+## ER vs. UML
+
+- ER: data-at-rest, focused on storage and integrity.
+- UML: data-in-motion, includes behavior (operations).
+- Multiplicity in UML combines min and max (e.g., 0..1, 1..*).
+
+---
+
+# Logic as a Foundation
+
+## First-Order Logic (FOL)
+
+**Declarative nature:** logic tells what is true, not how to find it.
+**Constants:** specific entities (e.g., alice, bob).
+**Variables:** placeholders (x, y, z).
+**Predicates:** properties (unary) or relationships (binary, n-ary). Arity = number of arguments.
+**Propositional connectives:** ∧ (AND), ∨ (OR), ¬ (NOT), → (implication), ↔ (iff).
+**Quantifiers:**
+- ∀x P(x) : "for every x, P(x) is true"
+- ∃x P(x) : "there exists x such that P(x) is true"
+
+**Vacuous truth:** ∀x(P(x) → Q(x)) is true if no x satisfies P(x).
+**Quantifier scope:** order matters. ∀s ∃a Advises(a,s) vs ∃a ∀s Advises(a,s).
+
+## Model Theory
+
+**Interpretation I:** domain D, mapping constants, mapping predicates.
+**Satisfaction (I ⊨ φ):** formula true under interpretation.
+**Model:** I is a model for φ if I ⊨ φ.
+**Database instance** is an interpretation; **integrity constraints** are formulas.
+
+## Prolog
+
+**Knowledge Base (KB):** facts + rules.
+**Facts:** ground atoms (extensional database).
+**Rules:** Horn clauses (Head :- Body) meaning Body → Head (intensional database).
+**Queries:** ?- goal. Prolog uses unification and backward chaining (SLD-resolution) to prove query.
+**Unification:** matching terms by finding variable substitutions.
+**Backtracking:** depth-first search with choice points.
+**Recursion:** used for transitive closure (ancestor, path).
+**Left-recursion trap:** rule ordering can cause infinite loop.
+**Generative trap:** infinite answer set if domain infinite.
+
+## Datalog
+
+- Subset of Prolog designed for databases.
+- Removes function symbols → finite Herbrand universe.
+- Safe rules: every variable in head appears in positive body atom.
+- Bottom-up evaluation (forward chaining) using Tp operator until fixpoint.
+- Stratified negation: dependency graph has no cycle with negative edge.
+- Stratified Datalog computes perfect model.
+- Transitive closure expressible (unlike RA/RC).
+
+## Epistemology
+
+**Closed World Assumption (CWA):** if fact not present, assume false. Leads to **Negation as Failure (NAF)**.
+**Open World Assumption (OWA):** failure to derive does not imply false; it is unknown.
+
+---
+
+# The Relational Model
+
+## Relational Signature
+
+Language L = {R1/n1, R2/n2, ...} with relation names and arities.
+No function symbols → finiteness.
+
+## Attributes and Domains
+
+Attribute mapping to domain. Natural join defined on attribute names.
+**NULL** is not a value; marker for absence. Leads to 3VL.
+
+## n-ary Relation
+
+Relation instance r ⊆ dom(A1) × ... × dom(An).
+Tuple: function assigning constant to each attribute.
+Properties: unordered, distinct (set semantics).
+
+## Schema as Logical Theory Σ
+
+Integrity constraints as FOL sentences:
+- Domain constraints
+- Key constraints
+- Referential integrity
+
+## Herbrand Interpretation
+
+Herbrand Universe U: set of all constants.
+Herbrand Base B: set of all ground atoms.
+Instance J ⊆ B. Atom true iff in J.
+**Valid state:** J ⊨ Σ.
+
+## Superkeys and Candidate Keys
+
+**Superkey:** K such that t1[K]=t2[K] ⇒ t1=t2.
+**Candidate key:** minimal superkey.
+**Primary key:** chosen candidate key.
+
+## Three Pillars
+
+- **Unique Name Assumption (UNA):** distinct constants denote distinct objects.
+- **Domain Closure Assumption (DCA):** no objects other than constants.
+- **Closed World Assumption (CWA):** fact not present ⇒ false.
+
+## Relational Algebra (RA)
+
+**Operations:**
+- Selection σ (horizontal subset)
+- Projection π (vertical subset, eliminates duplicates)
+- Renaming ρ
+- Union ∪, Intersection ∩, Difference −
+- Cartesian product ×
+- Join: θ-join, equijoin, natural join (⋈), outer joins (⟕, ⟖, ⟗)
+- Semijoin (⋉), antijoin (▷)
+- Division ÷
+
+**Closure property:** output of operation is a relation → nested expressions.
+
+## Relational Calculi
+
+**Tuple Relational Calculus (TRC):** { t | P(t) } where t is tuple variable.
+**Domain Relational Calculus (DRC):** { (x1,...,xn) | P(x1,...,xn) } where xi are domain variables.
+**Safe queries:** range-restricted, domain independent → guarantee finite result.
+
+## Codd's Theorem
+
+RA and Safe RC have exactly the same expressive power. SQL is relationally complete (plus extensions: aggregation, recursion).
+
+## Limitations
+
+- Cannot compute transitive closure (needs recursion).
+- No built-in aggregation in original algebra.
+- Set semantics vs. SQL bags.
+- Ordering not part of model.
+- NULL and 3VL.
+
+---
+
+# Dependency Theory
+
+## Embedded Dependencies (ED)
+
+General form: ∀x [ φ(x) → ∃y ψ(x,y) ]
+- Body φ (premise), Head ψ (conclusion).
+- Full dependencies: no existential quantifiers (y empty).
+- Non-full (embedded) have ∃.
+
+## Tuple-Generating Dependencies (TGD) and Equality-Generating Dependencies (EGD)
+
+- TGD: head asserts existence of tuples (e.g., Inclusion Dependency).
+- EGD: head asserts equality of values (e.g., Functional Dependency).
+
+## Functional Dependencies (FD)
+
+X → Y : if two tuples agree on X, they agree on Y.
+**Armstrong's Axioms:** reflexivity, augmentation, transitivity (sound and complete).
+**Attribute closure X⁺:** set of attributes determined by X.
+**Minimal cover:** canonical form with singleton RHS, no extraneous attributes, no redundant FDs.
+
+## Inclusion Dependencies (IND)
+
+R[A] ⊆ S[B] : every value in columns A of R appears in columns B of S.
+Foreign key: IND + referenced attributes form a candidate key.
+
+## Trahtenbrot's Theorem
+
+Set of FOL sentences true in all finite models is not recursively enumerable.
+
+## Normalization
+
+**Anomalies:** insertion, deletion, update anomalies due to redundancy.
+**1NF:** atomic attributes (no repeating groups, no composite values).
+**2NF:** no partial dependency on candidate key (every non-prime fully dependent on every candidate key).
+**3NF:** no transitive dependency (if X → A, then X is superkey or A is prime).
+**BCNF:** for every FD X → A, X is superkey.
+
+**Lossless join decomposition** and **dependency preservation** are goals.
+**Synthesis algorithm** for 3NF (preserves dependencies). **Decomposition algorithm** for BCNF (may lose dependencies).
+
+## Multivalued Dependencies (MVD) and 4NF
+
+X ↠ Y : for a fixed X, the set of Y values is independent of Z values. Leads to 4NF.
+
+---
+
+# Logical Implementation
+
+## ER-to-Relational Mapping (7 steps)
+
+1. Strong entities → relation with simple attributes (flatten composites), PK.
+2. Weak entities → relation with owner's PK + partial key as composite PK, FK cascade.
+3. Binary 1:1 → foreign key (total side), merge, or cross-reference.
+4. Binary 1:N → foreign key in child (many side).
+5. Binary M:N → new associative table with composite PK (FKs).
+6. Multi-valued attribute → new table with (owner PK, attribute value) as PK.
+7. N-ary relationship → new table with all FKs; PK usually all FKs.
+
+## Inheritance Mapping (EER)
+
+- **Single table (table-per-hierarchy):** one table with type discriminator; simple but sparse.
+- **Class table (table-per-type):** superclass table + subclass tables linked by FK; normalized, need joins.
+- **Concrete table (table-per-concrete-class):** no superclass table, duplicate common attributes; union queries difficult.
+
+## SQL Data Definition Language (DDL)
+
+- CREATE TABLE, ALTER TABLE, DROP TABLE.
+- Domains: CREATE DOMAIN with CHECK.
+- Constraints: PRIMARY KEY, UNIQUE, NOT NULL, CHECK.
+- Foreign Key: REFERENCES, ON DELETE/UPDATE (CASCADE, SET NULL, RESTRICT, NO ACTION).
+- Referential actions: CASCADE, SET NULL, SET DEFAULT, RESTRICT/NO ACTION.
+- Triggers for complex constraints (since ASSERTION rarely supported).
+
+## Key Engineering
+
+- Natural key vs surrogate key (auto-increment, UUID). UUIDv7 recommended for sequential locality.
+- Immutability principle: primary keys should never change.
+
+## Denormalization and Patterns
+
+- Soft delete: add IsDeleted column, filtered unique index.
+- History table (audit logs): triggers or temporal tables.
+- Enum handling: lookup table, CHECK constraint, app constants.
+- I18N: translation table (ProdID, LangCode, Description).
+
+---
+
+# Querying Theory
+
+## SQL Mapping to RA
+
+- SELECT → π (projection)
+- FROM → × (Cartesian product)
+- WHERE → σ (selection)
+- JOINs are derived from × and σ.
+
+## Bag (Multiset) Semantics
+
+SQL tables are bags (duplicates allowed). Use DISTINCT to get set semantics.
+
+## Logical Order of Operations
+
+1. FROM (product)
+2. WHERE (filter rows)
+3. GROUP BY (group)
+4. HAVING (filter groups)
+5. SELECT (project, compute expressions)
+6. DISTINCT (deduplicate)
+7. ORDER BY (sort)
+8. LIMIT (truncate)
+
+Aliases in SELECT not visible in WHERE (executes later); visible in ORDER BY.
+
+## Three-Valued Logic (3VL) and NULL
+
+Truth values: T, F, U (unknown).
+Comparisons with NULL yield U. WHERE clause rejects U and F.
+**IS NULL** / **IS NOT NULL** to test nullness.
+**COALESCE** returns first non-NULL.
+**NULLIF** (a,b) returns NULL if a=b.
+**IS DISTINCT FROM** treats NULL as comparable.
+Aggregates (except COUNT(*)) ignore NULLs. AVG = SUM / COUNT(expr) not COUNT(*).
+
+## Set Operations
+
+UNION, INTERSECT, EXCEPT (set semantics by default; ALL for bags).
+Precedence: INTERSECT binds tighter than UNION/EXCEPT. Use parentheses.
+
+## Grouping and Aggregation
+
+GROUP BY partitions rows; SELECT may include grouping columns or aggregates, or columns functionally dependent on grouping columns.
+HAVING filters groups (after aggregation). WHERE filters rows (before).
+Conditional aggregation: SUM(CASE WHEN ... THEN 1 ELSE 0 END).
+
+## Subqueries
+
+Scalar (one row, one column) or table. Correlated subqueries reference outer query.
+**EXISTS** / **NOT EXISTS** (semi-join). NOT IN with NULLs is dangerous (returns empty).
+ANY / ALL compare with subquery results.
+
+## Views
+
+Virtual relation (macro expansion). Benefits: logical independence, security, abstraction.
+**Updatability** restricted: cannot involve aggregates, DISTINCT, GROUP BY, UNION; must have unambiguous mapping.
+**Materialized views:** stored physically, refreshed (eager/lazy). **WITH CHECK OPTION** prevents rows from disappearing after update.
+
+## Common Table Expressions (CTEs)
+
+WITH ... AS (...) SELECT ...; recursive CTEs for transitive closure.
+
+---
+
+# Advanced Query Logic
+
+## Recursion and Fixed Points
+
+Relational algebra cannot compute transitive closure.
+**Recursive CTE:** WITH RECURSIVE ... (anchor UNION ALL recursive member).
+**Least fixed point (LFP):** compute until no new facts.
+**Monotonicity** ensures termination.
+**Linear recursion** (one self-reference) vs non-linear.
+**Cycle detection:** track path array.
+
+## Stratified Negation
+
+Recursion + negation can be paradoxical. Stratify: compute positive fixed point first, then apply negation.
+
+## Window Functions
+
+Perform calculation over a set of rows related to current row, preserving cardinality.
+**PARTITION BY** divides, **ORDER BY** defines sequence, **frame** (ROWS | RANGE BETWEEN ...) defines window.
+Functions: ROW_NUMBER, RANK, DENSE_RANK, NTILE, LAG, LEAD, SUM, AVG, etc.
+**ROWS** vs **RANGE** vs **GROUPS**.
+
+## Pattern Matching: MATCH_RECOGNIZE
+
+Apply regular expressions to ordered partitions.
+Clauses: PARTITION BY, ORDER BY, MEASURES, PATTERN, DEFINE.
+**AFTER MATCH SKIP** controls overlapping matches.
+
+## Relational Division
+
+Find entities associated with ALL of a set.
+Implementation via **double NOT EXISTS** (∀) or **cardinality comparison** (COUNT).
+
+## LATERAL (or CROSS APPLY)
+
+Dependent join: right subquery can reference columns from left side. Useful for top-N-per-group and unnesting arrays.
+
+## Multidimensional Aggregation (OLAP)
+
+- **ROLLUP:** hierarchical grouping sets (N+1).
+- **CUBE:** all subsets (2^N).
+- **GROUPING SETS:** manually specified.
+- **GROUPING()** function distinguishes NULL from super-aggregate placeholder.
+
+## PIVOT and UNPIVOT
+
+Rotate rows to columns (PIVOT) and columns to rows (UNPIVOT). Alternative: JSON aggregation.
+
+## Temporal Query Logic
+
+- Valid time (application time) and transaction time (system time).
+- Allen's interval algebra: 13 relations between intervals.
+
+---
+
+# Query Optimization
+
+## Optimization Pipeline
+
+Parser → Binder → Rewriter (logical optimization) → Optimizer (cost-based) → Execution.
+
+## Logical Rewriting (Heuristics)
+
+- Predicate push-down (σ before joins)
+- Projection push-down (π early)
+- Expression simplification (constant folding, boolean simplification)
+- Subquery unnesting (flatten to joins)
+- Decorrelation (pull correlated subqueries into joins)
+- Semantic optimization (use constraints to prune, join elimination)
+
+## Cost-Based Optimization
+
+Cost ≈ (Disk I/O) + (CPU) + (Memory). Disk I/O weighted heavily.
+**Statistics:** N(R) cardinality, V(A,R) distinct values, min/max, null fraction, histograms (equi-width, equi-depth), MCV list.
+**Selectivity (sel):** fraction of tuples satisfying predicate. Estimated result size = N(R) × sel.
+**Independence assumption** for conjunctions; multi-column statistics for correlation.
+
+## Join Ordering and Search Space
+
+Number of join orders is N! (left-deep) or exponential (bushy). NP-hard.
+**Selinger (Dynamic Programming) algorithm:** bottom-up, keep cheapest plan for each subset plus interesting orders (sorted outputs that may benefit later operations).
+
+## Physical Operators
+
+- Nested Loop (good for small inner)
+- Hash Join (good for large unsorted, needs memory)
+- Sort-Merge (good for sorted inputs)
+
+## Plan Management
+
+**EXPLAIN** shows plan, estimated cost, rows.
+**Parameter sniffing:** plan chosen based on first parameter value; may cause regression.
+**Plan caching** (prepared statements) saves parsing/optimization but risks stale plans.
+**Optimizer hints** force decisions, but create technical debt.
+
+---
+
+# Concurrency & Recovery
+
+## Transactions: ACID
+
+- **Atomicity:** all or nothing (undo rule)
+- **Consistency:** valid state to valid state
+- **Isolation:** concurrency illusion (serializability)
+- **Durability:** committed changes survive crashes (redo rule)
+
+## Schedules and Serializability
+
+**Conflict operations:** same item, at least one write.
+**Conflict serializable:** schedule equivalent to some serial schedule.
+**Precedence graph:** nodes = transactions, edge Ti → Tj if Ti conflicts before Tj. Acyclic ↔ conflict serializable.
+
+## Isolation Levels (SQL)
+
+- Read Uncommitted: dirty reads, non-repeatable, phantoms possible.
+- Read Committed: no dirty reads.
+- Repeatable Read: no non-repeatable reads (but phantoms possible).
+- Serializable: all anomalies prevented.
+
+## Locking
+
+**Lock Manager:** shared (S) and exclusive (X) locks. Compatibility matrix.
+**Two-Phase Locking (2PL):** growing phase (acquire locks) then shrinking phase (release). Guarantees conflict serializability.
+**Strict 2PL:** hold exclusive locks until commit (prevents cascading aborts).
+**Deadlock detection:** wait-for graph, cycle → abort victim.
+**Deadlock prevention:** wait-die, wound-wait (timestamp-based).
+
+## Multi-Granularity Locking (MGL)
+
+Lock hierarchy: database → table → page → row.
+**Intent locks:** IS, IX, SIX. Protocol: before locking child, hold intent lock on parent.
+
+## Index Locking (Latches)
+
+Latch: short-term, physical structure protection (mutex). **Latch crabbing (coupling):** traverse B+tree holding latches, release parent if child safe.
+
+## Multi-Version Concurrency Control (MVCC)
+
+Writers do not block readers. Each write creates new version. Tuple metadata: xmin (creator), xmax (deleter/updater). Visibility rules based on transaction ID.
+**Snapshot Isolation (SI):** transaction reads snapshot at start. First-committer-wins write conflict. Prevents lost updates but allows **write skew** anomaly.
+
+## Serializable Snapshot Isolation (SSI)
+
+Track rw-dependencies, abort cycles → full serializability with MVCC.
+
+## Recovery: ARIES
+
+**STEAL/NO-FORCE** policy → need both undo and redo.
+**Write-Ahead Logging (WAL):** log records (LSN, TransID, PageID, PrevLSN, Type, UndoInfo, RedoInfo) must be on stable storage before page is written.
+**Checkpoint (fuzzy):** record transaction table and dirty page table without stopping.
+**ARIES phases:**
+1. **Analysis:** restore transaction table and dirty page table from checkpoint + log.
+2. **Redo:** replay from oldest recLSN to end of log (idempotent, using pageLSN).
+3. **Undo:** rollback loser transactions, writing Compensation Log Records (CLR) to avoid re-undoing after crash.
+
+## Media Recovery and PITR
+
+Base backup + archived WAL logs. Point-in-time recovery: replay WAL to specific timestamp.
+
+---
